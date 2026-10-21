@@ -350,8 +350,8 @@
                         </div>
 
                         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                            <!-- Card 1 -->
-                            <button type="button" onclick="handleAction('Generar evolución')" class="group flex min-h-[92px] items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-left transition hover:-translate-y-0.5 hover:border-[#c4b5fd] hover:bg-[#fbf9ff] hover:shadow-[0_8px_20px_rgba(124,58,237,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]">
+                            <!-- Card 1: Generar evolución -->
+                            <button type="button" onclick="abrirAsistenteGemini('evolucion')" class="group flex min-h-[92px] items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-left transition hover:-translate-y-0.5 hover:border-[#c4b5fd] hover:bg-[#fbf9ff] hover:shadow-[0_8px_20px_rgba(124,58,237,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] cursor-pointer">
                                 <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e8e4fb] text-[#6e5db4] transition group-hover:scale-105">
                                     <svg class="size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/>
@@ -359,15 +359,15 @@
                                 </span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block text-sm font-semibold leading-5 text-slate-800">Generar evolución</span>
-                                    <span class="mt-1 block truncate text-xs text-slate-400">Redactar con ChatGPT</span>
+                                    <span class="mt-1 block truncate text-xs text-[#7c3aed] font-medium">Redactar con Gemini ✨</span>
                                 </span>
                                 <svg class="size-4 shrink-0 text-slate-300 transition group-hover:text-[#6e5db4] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M7 7h10v10"/><path d="M7 17 17 7"/>
                                 </svg>
                             </button>
 
-                            <!-- Card 2 -->
-                            <button type="button" onclick="handleAction('Procesar informe')" class="group flex min-h-[92px] items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-left transition hover:-translate-y-0.5 hover:border-[#c4b5fd] hover:bg-[#fbf9ff] hover:shadow-[0_8px_20px_rgba(124,58,237,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]">
+                            <!-- Card 2: Procesar informe -->
+                            <button type="button" onclick="abrirAsistenteGemini('informe')" class="group flex min-h-[92px] items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-left transition hover:-translate-y-0.5 hover:border-[#c4b5fd] hover:bg-[#fbf9ff] hover:shadow-[0_8px_20px_rgba(124,58,237,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] cursor-pointer">
                                 <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e8e4fb] text-[#6e5db4] transition group-hover:scale-105">
                                     <svg class="size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>
@@ -375,15 +375,15 @@
                                 </span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block text-sm font-semibold leading-5 text-slate-800">Procesar informe</span>
-                                    <span class="mt-1 block truncate text-xs text-slate-400">Analizar y redactar</span>
+                                    <span class="mt-1 block truncate text-xs text-[#7c3aed] font-medium">Analizar con Gemini ✨</span>
                                 </span>
                                 <svg class="size-4 shrink-0 text-slate-300 transition group-hover:text-[#6e5db4] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M7 7h10v10"/><path d="M7 17 17 7"/>
                                 </svg>
                             </button>
 
-                            <!-- Card 3 -->
-                            <button type="button" onclick="handleAction('Realizar transferencia')" class="group flex min-h-[92px] items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-left transition hover:-translate-y-0.5 hover:border-[#c4b5fd] hover:bg-[#fbf9ff] hover:shadow-[0_8px_20px_rgba(124,58,237,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]">
+                            <!-- Card 3: Realizar transferencia -->
+                            <button type="button" onclick="abrirAsistenteGemini('transferencia')" class="group flex min-h-[92px] items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-left transition hover:-translate-y-0.5 hover:border-[#c4b5fd] hover:bg-[#fbf9ff] hover:shadow-[0_8px_20px_rgba(124,58,237,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] cursor-pointer">
                                 <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e8e4fb] text-[#6e5db4] transition group-hover:scale-105">
                                     <svg class="size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M7 7h10v10"/><path d="M7 17 17 7"/>
@@ -391,13 +391,14 @@
                                 </span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block text-sm font-semibold leading-5 text-slate-800">Realizar transferencia</span>
-                                    <span class="mt-1 block truncate text-xs text-slate-400">Preparar pase clínico</span>
+                                    <span class="mt-1 block truncate text-xs text-[#7c3aed] font-medium">Pase clínico con Gemini ✨</span>
                                 </span>
                                 <svg class="size-4 shrink-0 text-slate-300 transition group-hover:text-[#6e5db4] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M7 7h10v10"/><path d="M7 17 17 7"/>
                                 </svg>
                             </button>
                         </div>
+
                     </section>
 
                     <!-- Section 3: Material docente -->
@@ -503,10 +504,11 @@
                                     onclick="seleccionarDisco('{{ $d['disco'] }}')" 
                                     id="btnDisco_{{ $d['disco'] }}" 
                                     class="btn-disco-opcion px-2.5 py-1 rounded-md transition cursor-pointer text-xs {{ ($d['disco'] === ($discoPredeterminado ?? 'D')) ? 'bg-[#248294] text-white shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-200/70 font-medium' }}">
-                                    Disco {{ $d['disco'] }}:\
+                                    {{ !empty($d['es_drive']) ? '☁️ Google Drive (G:)' : ($d['etiqueta'] ?? 'Disco ' . $d['disco'] . ':\\') }}
                                 </button>
                             @endforeach
                         </div>
+
                     </div>
 
                     <!-- Estructura dividida: Pediatria -> Fecha -> Paciente -->
@@ -1092,9 +1094,14 @@
             }
 
             if (previewRuta) {
-                previewRuta.textContent = `${discoSeleccionado}:\\Pediatria\\${fechaHoyActual}\\${clean}\\`;
+                if (discoSeleccionado === 'G') {
+                    previewRuta.textContent = `G:\\Mi unidad\\PEDIATRIA\\${fechaHoyActual}\\${clean}\\`;
+                } else {
+                    previewRuta.textContent = `${discoSeleccionado}:\\Pediatria\\${fechaHoyActual}\\${clean}\\`;
+                }
             }
         }
+
 
         function copiarRutaExito() {
             const el = document.getElementById('successRutaRelativa');
@@ -1866,7 +1873,27 @@
             }
         }
 
+        // --- ASISTENCIA INTELIGENTE CON GEMINI ---
+        function abrirAsistenteGemini(tipo) {
+            const prompts = {
+                evolucion: "Actúa como médico especialista en pediatría. Redacta una nota de evolución clínica pediátrica estructurada y profesional (formato SOAP: Subjetivo, Objetivo, Evaluación y Plan) con los siguientes datos del paciente:\n\n- Nombre del paciente:\n- Edad / Peso:\n- Diagnóstico principal:\n- Hallazgos clínicos / Signos vitales:\n- Tratamiento actual:",
+                informe: "Actúa como médico pediatra. Analiza la siguiente información clínica y redacta un informe médico pediátrico formal y detallado:\n\n- Resumen de ingreso:\n- Evolución del caso:\n- Exámenes complementarios / Laboratorios:\n- Conclusiones y recomendaciones médicas:",
+                transferencia: "Actúa como pediatra de guardia. Prepara una nota de pase clínico / transferencia médica pediátrica clara y concisa para la entrega de turno:\n\n- Paciente:\n- Diagnóstico:\n- Pendientes prioritarios para el siguiente turno:\n- Signos de alarma a vigilar:\n- Conducta y plan terapéutico:"
+            };
+
+            const promptText = prompts[tipo] || prompts.evolucion;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(promptText).catch(() => {});
+            }
+
+            handleAction('Abriendo Google Gemini...', '📋 Plantilla clínica copiada. Cada usuario ingresará con su propia cuenta de Google.');
+
+            window.open('https://gemini.google.com/app?hl=es', '_blank');
+        }
+
         function handleAction(label, sub = '') {
+
             const alertBox = document.getElementById('actionAlert');
             const titleEl = document.getElementById('actionAlertTitle');
             const subEl = document.getElementById('actionAlertSub');

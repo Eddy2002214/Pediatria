@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'google_drive' => [
+        'enabled' => env('GOOGLE_DRIVE_ENABLED', true),
+        'folder_id' => env('GOOGLE_DRIVE_FOLDER_ID'),
+        'templates_folder_id' => env('GOOGLE_DRIVE_TEMPLATES_FOLDER_ID'),
+        'credentials_path' => env('GOOGLE_APPLICATION_CREDENTIALS', 'storage/app/google-credentials.json'),
+    ],
+
 ];

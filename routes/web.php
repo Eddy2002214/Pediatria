@@ -19,6 +19,7 @@ Route::prefix('documentos')->group(function () {
     Route::get('/descargar-archivo/{fecha}/{paciente}/{archivo}', [DocumentoController::class, 'descargarArchivo'])->name('documentos.descargar-archivo');
     Route::get('/descargar-zip/{fecha}/{paciente}', [DocumentoController::class, 'descargarZip'])->name('documentos.descargar-zip');
     Route::get('/descargar-plantilla/{tipo}', [DocumentoController::class, 'descargarPlantilla'])->name('documentos.descargar-plantilla');
+    Route::get('/drive-status', [DocumentoController::class, 'driveStatus'])->name('documentos.drive-status');
 });
 
 Route::prefix('material-docente')->group(function () {

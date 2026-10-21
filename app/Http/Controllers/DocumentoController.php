@@ -2,15 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\GoogleDriveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
 
 class DocumentoController extends Controller
 {
+    public function __construct(
+        protected GoogleDriveService $googleDrive
+    ) {}
+
     /**
      * The 3 official hospital templates.
      *
@@ -42,7 +48,7 @@ class DocumentoController extends Controller
     public function obtenerDiscosDisponibles(): array
     {
         $discos = [];
-        $letras = ['D', 'C', 'E', 'F'];
+        $letras = ['G', 'D', 'C', 'E', 'F'];
         $discoPredeterminado = $this->obtenerDiscoPredeterminado();
 
         foreach ($letras as $letra) {
@@ -50,16 +56,27 @@ class DocumentoController extends Controller
             if (is_dir($raiz)) {
                 $escribible = @is_writable($raiz);
                 $rutaPediatria = "{$letra}:\\Pediatria";
+                $esDrive = ($letra === 'G');
 
-                if ($letra === 'C' && ! $escribible && ! is_dir('C:/Pediatria')) {
+                if ($letra === 'G') {
+                    if (is_dir('G:/Mi unidad/PEDIATRIA')) {
+                        $rutaPediatria = 'G:\\Mi unidad\\PEDIATRIA';
+                        $escribible = @is_writable('G:/Mi unidad/PEDIATRIA');
+                    } elseif (is_dir('G:/Mi unidad')) {
+                        $rutaPediatria = 'G:\\Mi unidad\\Pediatria';
+                        $escribible = @is_writable('G:/Mi unidad');
+                    }
+                } elseif ($letra === 'C' && ! $escribible && ! is_dir('C:/Pediatria')) {
                     $rutaPediatria = str_replace('/', '\\', base_path('Pediatria'));
                 }
 
                 $discos[] = [
                     'disco' => $letra,
+                    'etiqueta' => $esDrive ? 'Google Drive (G:)' : "Disco {$letra}:",
+                    'es_drive' => $esDrive,
                     'raiz' => "{$letra}:\\",
                     'ruta_pediatria' => $rutaPediatria,
-                    'escribible' => $escribible || is_dir("{$letra}:/Pediatria"),
+                    'escribible' => $escribible || is_dir($rutaPediatria),
                     'es_predeterminado' => ($letra === $discoPredeterminado),
                 ];
             }
@@ -69,6 +86,8 @@ class DocumentoController extends Controller
             $discoBase = strtoupper(substr(base_path(), 0, 1));
             $discos[] = [
                 'disco' => $discoBase,
+                'etiqueta' => "Disco {$discoBase}:",
+                'es_drive' => false,
                 'raiz' => "{$discoBase}:\\",
                 'ruta_pediatria' => str_replace('/', '\\', base_path('Pediatria')),
                 'escribible' => true,
@@ -80,13 +99,18 @@ class DocumentoController extends Controller
     }
 
     /**
-     * Determina el disco predeterminado (D: si existe y es escribible, o C: o el configurado).
+     * Determina el disco predeterminado (Google Drive G: si está presente, D: si existe, o C:).
      */
     public function obtenerDiscoPredeterminado(): string
     {
         $configDisco = env('PEDIATRIA_DISCO');
         if ($configDisco && is_dir(strtoupper($configDisco).':/')) {
             return strtoupper($configDisco);
+        }
+
+        // Si Google Drive para escritorio está montado en G: y tiene PEDIATRIA
+        if (is_dir('G:/Mi unidad/PEDIATRIA') && @is_writable('G:/Mi unidad/PEDIATRIA')) {
+            return 'G';
         }
 
         if (is_dir('D:/') && @is_writable('D:/')) {
@@ -105,8 +129,19 @@ class DocumentoController extends Controller
     {
         $discoLetra = $disco ? strtoupper(trim($disco, ':\\/ ')) : $this->obtenerDiscoPredeterminado();
 
-        if (! in_array($discoLetra, ['C', 'D', 'E', 'F']) || ! is_dir("{$discoLetra}:/")) {
+        if (! in_array($discoLetra, ['G', 'C', 'D', 'E', 'F']) || ! is_dir("{$discoLetra}:/")) {
             $discoLetra = $this->obtenerDiscoPredeterminado();
+        }
+
+        if ($discoLetra === 'G') {
+            if (is_dir('G:/Mi unidad/PEDIATRIA')) {
+                return 'G:/Mi unidad/PEDIATRIA';
+            }
+            if (is_dir('G:/Pediatria')) {
+                return 'G:/Pediatria';
+            }
+
+            return 'G:/Mi unidad/Pediatria';
         }
 
         if ($discoLetra === 'C' && ! @is_writable('C:/') && ! is_dir('C:/Pediatria')) {
@@ -166,23 +201,32 @@ class DocumentoController extends Controller
         $archivosGenerados = [];
         $plantillasFaltantes = [];
 
-        foreach ($this->plantillas as $key => $info) {
-            $rutaOrigen = base_path('Plantillas/'.$info['archivo']);
+        // Clonar plantillas desde la carpeta PLANTILLAS de Google Drive si está disponible
+        $carpetaPlantillasDrive = "{$rutaBase}/PLANTILLAS";
 
-            if (File::exists($rutaOrigen)) {
-                $nombreArchivo = $info['archivo'];
+        if (File::isDirectory($carpetaPlantillasDrive)) {
+            $archivosPlantilla = File::files($carpetaPlantillasDrive);
+            foreach ($archivosPlantilla as $file) {
+                $nombreArchivo = $file->getFilename();
+
+                // Ignorar archivos ocultos o de sistema (desktop.ini, temporales ~$)
+                if (str_starts_with($nombreArchivo, '.') || str_starts_with($nombreArchivo, '~') || strcasecmp($nombreArchivo, 'desktop.ini') === 0) {
+                    continue;
+                }
+
                 $rutaDestinoArchivo = "{$carpetaDestino}/{$nombreArchivo}";
 
-                copy($rutaOrigen, $rutaDestinoArchivo);
+                copy($file->getRealPath(), $rutaDestinoArchivo);
 
                 $bytes = filesize($rutaDestinoArchivo);
                 $tamano = $bytes >= 1048576
                     ? number_format($bytes / 1048576, 2).' MB'
                     : number_format($bytes / 1024, 0).' KB';
 
+                $nombreLimpio = pathinfo($nombreArchivo, PATHINFO_FILENAME);
                 $archivosGenerados[] = [
-                    'tipo' => $key,
-                    'titulo' => $info['titulo'],
+                    'tipo' => Str::slug($nombreLimpio),
+                    'titulo' => $nombreLimpio,
                     'nombre' => $nombreArchivo,
                     'tamano' => $tamano,
                     'url' => route('documentos.descargar-archivo', [
@@ -192,12 +236,70 @@ class DocumentoController extends Controller
                         'disco' => $letraDisco,
                     ]),
                 ];
-            } else {
-                $plantillasFaltantes[] = $info['archivo'];
+            }
+        }
+
+        // Si no se encontraron plantillas en Drive, usar las plantillas locales por defecto
+        if (empty($archivosGenerados)) {
+            foreach ($this->plantillas as $key => $info) {
+                $rutaOrigen = base_path('Plantillas/'.$info['archivo']);
+
+                if (File::exists($rutaOrigen)) {
+                    $nombreArchivo = $info['archivo'];
+                    $rutaDestinoArchivo = "{$carpetaDestino}/{$nombreArchivo}";
+
+                    copy($rutaOrigen, $rutaDestinoArchivo);
+
+                    $bytes = filesize($rutaDestinoArchivo);
+                    $tamano = $bytes >= 1048576
+                        ? number_format($bytes / 1048576, 2).' MB'
+                        : number_format($bytes / 1024, 0).' KB';
+
+                    $archivosGenerados[] = [
+                        'tipo' => $key,
+                        'titulo' => $info['titulo'],
+                        'nombre' => $nombreArchivo,
+                        'tamano' => $tamano,
+                        'url' => route('documentos.descargar-archivo', [
+                            'fecha' => $fechaHoy,
+                            'paciente' => $pacienteDir,
+                            'archivo' => $nombreArchivo,
+                            'disco' => $letraDisco,
+                        ]),
+                    ];
+                } else {
+                    $plantillasFaltantes[] = $info['archivo'];
+                }
+            }
+        }
+
+        $driveInfo = null;
+        if ($letraDisco === 'G') {
+            $driveInfo = [
+                'sincronizado' => true,
+                'metodo' => 'google_drive_desktop',
+                'mensaje' => 'Guardado y sincronizado automáticamente en Google Drive',
+            ];
+        } elseif ($this->googleDrive->isConfigured()) {
+            try {
+                $driveResult = $this->googleDrive->ingresarPacienteDrive($nombreInput, $fechaHoy);
+                $driveInfo = [
+                    'sincronizado' => true,
+                    'carpeta_id' => $driveResult['carpeta_id'],
+                    'carpeta_url' => $driveResult['carpeta_url'],
+                    'archivos' => $driveResult['archivos'],
+                ];
+            } catch (\Throwable $e) {
+                Log::warning('Error sincronizando con Google Drive API: '.$e->getMessage());
+                $driveInfo = [
+                    'sincronizado' => false,
+                    'error' => $e->getMessage(),
+                ];
             }
         }
 
         return response()->json([
+
             'success' => true,
             'mensaje' => 'Paciente ingresado con éxito.',
             'paciente' => $nombreInput,
@@ -213,6 +315,35 @@ class DocumentoController extends Controller
                 'paciente' => $pacienteDir,
                 'disco' => $letraDisco,
             ]),
+            'drive' => $driveInfo,
+        ]);
+    }
+
+    /**
+     * Devuelve el estado actual de la conexión con Google Drive.
+     */
+    public function driveStatus(): JsonResponse
+    {
+        $configurado = $this->googleDrive->isConfigured();
+        $plantillasDrive = [];
+        $error = null;
+
+        if ($configurado) {
+            try {
+                $plantillasDrive = $this->googleDrive->getTemplateFiles();
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
+        }
+
+        return response()->json([
+            'configurado' => $configurado,
+            'carpeta_pediatria_id' => env('GOOGLE_DRIVE_FOLDER_ID'),
+            'carpeta_plantillas_id' => env('GOOGLE_DRIVE_TEMPLATES_FOLDER_ID'),
+            'plantillas_encontradas' => $plantillasDrive,
+            'total_plantillas' => count($plantillasDrive),
+            'drive_url' => 'https://drive.google.com/drive/folders/'.env('GOOGLE_DRIVE_FOLDER_ID'),
+            'error' => $error,
         ]);
     }
 
@@ -239,6 +370,10 @@ class DocumentoController extends Controller
 
             if (File::exists('D:/Pediatria') && ! in_array('D:/Pediatria', $rutasPediatria)) {
                 $rutasPediatria[] = 'D:/Pediatria';
+            }
+
+            if (File::exists('G:/Mi unidad/PEDIATRIA') && ! in_array('G:/Mi unidad/PEDIATRIA', $rutasPediatria)) {
+                $rutasPediatria[] = 'G:/Mi unidad/PEDIATRIA';
             }
         }
 
