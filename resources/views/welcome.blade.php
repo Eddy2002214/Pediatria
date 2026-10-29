@@ -375,7 +375,7 @@
                                 </span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block text-sm font-semibold leading-5 text-slate-800">Procesar informe</span>
-                                    <span class="mt-1 block truncate text-xs text-[#7c3aed] font-medium">Analizar con Gemini ✨</span>
+                                    <span class="mt-1 block truncate text-xs text-[#7c3aed] font-medium">Analizar con NotebookLM ✨</span>
                                 </span>
                                 <svg class="size-4 shrink-0 text-slate-300 transition group-hover:text-[#6e5db4] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M7 7h10v10"/><path d="M7 17 17 7"/>
@@ -1873,7 +1873,7 @@
             }
         }
 
-        // --- ASISTENCIA INTELIGENTE CON GEMINI ---
+        // --- ASISTENCIA INTELIGENTE CON GEMINI / NOTEBOOK ---
         function abrirAsistenteGemini(tipo) {
             const prompts = {
                 evolucion: "Actúa como médico especialista en pediatría. Redacta una nota de evolución clínica pediátrica estructurada y profesional (formato SOAP: Subjetivo, Objetivo, Evaluación y Plan) con los siguientes datos del paciente:\n\n- Nombre del paciente:\n- Edad / Peso:\n- Diagnóstico principal:\n- Hallazgos clínicos / Signos vitales:\n- Tratamiento actual:",
@@ -1885,6 +1885,12 @@
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(promptText).catch(() => {});
+            }
+
+            if (tipo === 'informe') {
+                handleAction('Abriendo Google Notebook...', '📋 Plantilla clínica copiada. Cada usuario ingresará con su propia cuenta de Google.');
+                window.open('https://notebook.google.com/', '_blank');
+                return;
             }
 
             handleAction('Abriendo Google Gemini...', '📋 Plantilla clínica copiada. Cada usuario ingresará con su propia cuenta de Google.');
