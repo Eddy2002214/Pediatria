@@ -46,6 +46,11 @@ class DocumentoTest extends TestCase
         if (File::exists($data['ruta_completa'])) {
             File::deleteDirectory($data['ruta_completa']);
         }
+
+        $driveTestFolder = 'G:/Mi unidad/PEDIATRIA/'.now()->format('Y-m-d').'/'.$nombrePaciente;
+        if (File::exists($driveTestFolder)) {
+            File::deleteDirectory($driveTestFolder);
+        }
     }
 
     public function test_historial_retorna_lista_de_pacientes(): void

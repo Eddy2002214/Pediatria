@@ -422,13 +422,19 @@ class DocumentoController extends Controller
                     $archivos = [];
 
                     foreach ($files as $file) {
+                        $nombreArchivo = $file->getFilename();
+
+                        if (str_starts_with($nombreArchivo, '.') || str_starts_with($nombreArchivo, '~') || strcasecmp($nombreArchivo, 'desktop.ini') === 0) {
+                            continue;
+                        }
+
                         $bytes = $file->getSize();
                         $tamano = $bytes >= 1048576
                             ? number_format($bytes / 1048576, 2).' MB'
                             : number_format($bytes / 1024, 0).' KB';
 
                         $archivos[] = [
-                            'nombre' => $file->getFilename(),
+                            'nombre' => $nombreArchivo,
                             'tamano' => $tamano,
                             'hora' => date('H:i', $file->getMTime()),
                             'url' => route('documentos.descargar-archivo', [
