@@ -244,7 +244,14 @@
                         <div class="mb-5 rounded-xl border border-teal-100 bg-teal-50/70 p-3.5 text-xs text-slate-700 flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
                             <div class="flex items-center gap-2 min-w-0">
                                 <span class="flex size-6 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-[#248294] font-bold text-xs">📁</span>
-                                <span class="truncate">Estructura automática: <code class="font-mono text-[#123b5d] font-bold bg-white px-1.5 py-0.5 rounded border border-teal-200/70">Disco {{ $discoPredeterminado ?? 'D' }}:\Pediatria / {{ date('Y-m-d') }} / [Nombre_Paciente] / (3 archivos)</code></span>
+                                @php
+                                    $discoObj = collect($discos ?? [])->firstWhere('disco', $discoPredeterminado ?? 'H') ?? ($discos[0] ?? null);
+                                    $esDrivePred = !empty($discoObj['es_drive']) || in_array(($discoPredeterminado ?? ''), ['H', 'G']);
+                                    $rutaBanner = $esDrivePred
+                                        ? "Google Drive ({$discoPredeterminado}:\\Mi unidad\\PEDIATRIA)" 
+                                        : 'Disco ' . ($discoPredeterminado ?? 'D') . ':\Pediatria';
+                                @endphp
+                                <span class="truncate">Estructura automática: <code class="font-mono text-[#123b5d] font-bold bg-white px-1.5 py-0.5 rounded border border-teal-200/70">{{ $rutaBanner }} / {{ date('Y-m-d') }} / [Nombre_Paciente] / (3 archivos)</code></span>
                             </div>
                             <span class="text-[11px] text-teal-800 font-medium shrink-0">Plantillas base en <code class="font-mono font-semibold">Plantillas/</code> nunca se modifican</span>
                         </div>
@@ -266,7 +273,7 @@
                                     <p class="mt-1 truncate text-xs text-slate-400 font-mono">Historia_Clinica.docx</p>
                                 </div>
                                 <div class="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between">
-                                    <a href="{{ route('documentos.descargar-plantilla', ['tipo' => 'historia-clinica']) }}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#248294] hover:text-[#1c6978] transition" title="Descargar plantilla maestra">
+                                    <a href="{{ route('documentos.descargar-plantilla', ['tipo' => 'historia-clinica'], false) }}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#248294] hover:text-[#1c6978] transition" title="Descargar plantilla maestra">
                                         <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
                                         </svg>
@@ -293,7 +300,7 @@
                                     <p class="mt-1 truncate text-xs text-slate-400 font-mono">Indicaciones.docx</p>
                                 </div>
                                 <div class="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between">
-                                    <a href="{{ route('documentos.descargar-plantilla', ['tipo' => 'indicaciones']) }}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#248294] hover:text-[#1c6978] transition" title="Descargar plantilla maestra">
+                                    <a href="{{ route('documentos.descargar-plantilla', ['tipo' => 'indicaciones'], false) }}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#248294] hover:text-[#1c6978] transition" title="Descargar plantilla maestra">
                                         <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
                                         </svg>
@@ -320,7 +327,7 @@
                                     <p class="mt-1 truncate text-xs text-slate-400 font-mono">Admision.docx</p>
                                 </div>
                                 <div class="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between">
-                                    <a href="{{ route('documentos.descargar-plantilla', ['tipo' => 'admision']) }}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#248294] hover:text-[#1c6978] transition" title="Descargar plantilla maestra">
+                                    <a href="{{ route('documentos.descargar-plantilla', ['tipo' => 'admision'], false) }}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#248294] hover:text-[#1c6978] transition" title="Descargar plantilla maestra">
                                         <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
                                         </svg>
@@ -492,23 +499,34 @@
 
                 <!-- Live Path Preview Box -->
                 <div class="rounded-xl border border-teal-200/90 bg-gradient-to-br from-teal-50/60 via-white to-slate-50 p-4 text-xs text-slate-700 shadow-xs">
-                    <!-- Selector de disco -->
+                    <!-- Selector de disco con reconocimiento automático -->
                     <div class="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-teal-200/60">
-                        <p class="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                            <span class="flex size-5 items-center justify-center rounded-md bg-[#248294] text-white text-[10px]">💾</span>
-                            <span>Disco de almacenamiento:</span>
-                        </p>
-                        <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
-                            @foreach(($discos ?? [['disco' => 'D', 'es_predeterminado' => true], ['disco' => 'C', 'es_predeterminado' => false]]) as $d)
-                                <button type="button" 
-                                    onclick="seleccionarDisco('{{ $d['disco'] }}')" 
-                                    id="btnDisco_{{ $d['disco'] }}" 
-                                    class="btn-disco-opcion px-2.5 py-1 rounded-md transition cursor-pointer text-xs {{ ($d['disco'] === ($discoPredeterminado ?? 'D')) ? 'bg-[#248294] text-white shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-200/70 font-medium' }}">
-                                    {{ !empty($d['es_drive']) ? '☁️ Google Drive (G:)' : ($d['etiqueta'] ?? 'Disco ' . $d['disco'] . ':\\') }}
-                                </button>
-                            @endforeach
+                        <div>
+                            <p class="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                                <span class="flex size-5 items-center justify-center rounded-md bg-[#248294] text-white text-[10px]">💾</span>
+                                <span>Almacenamiento detectado:</span>
+                            </p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">Reconocimiento automático de disco</p>
                         </div>
-
+                        <div class="flex items-center gap-1.5">
+                            @if(count($discos ?? []) <= 1)
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
+                                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    {{ !empty($discos[0]['es_drive']) ? '☁️ ' . ($discos[0]['etiqueta'] ?? 'Google Drive (' . ($discos[0]['disco'] ?? 'H') . ':)') : ($discos[0]['etiqueta'] ?? 'Disco ' . ($discoPredeterminado ?? 'D') . ':\\') }}
+                                </span>
+                            @else
+                                <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+                                    @foreach(($discos ?? []) as $d)
+                                        <button type="button" 
+                                            onclick="seleccionarDisco('{{ $d['disco'] }}')" 
+                                            id="btnDisco_{{ $d['disco'] }}" 
+                                            class="btn-disco-opcion px-2.5 py-1 rounded-md transition cursor-pointer text-xs {{ ($d['disco'] === ($discoPredeterminado ?? 'H')) ? 'bg-[#248294] text-white shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-200/70 font-medium' }}">
+                                            {{ !empty($d['es_drive']) ? '☁️ ' . $d['etiqueta'] : ($d['etiqueta'] ?? 'Disco ' . $d['disco'] . ':\\') }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
                     </div>
 
                     <!-- Estructura dividida: Pediatria -> Fecha -> Paciente -->
@@ -518,11 +536,17 @@
                     </p>
                     <div class="flex items-center gap-1 flex-wrap text-xs font-mono bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-50 text-sky-800 font-bold border border-sky-200">
-                            💾 <span id="previewDiscoLetra">{{ $discoPredeterminado ?? 'D' }}:</span>\
+                            💾 <span id="previewDiscoLetra">{{ $discoPredeterminado ?? 'H' }}:</span>\
+                        </span>
+                        <span id="previewMiUnidadWrapper" class="{{ $esDrivePred ? '' : 'hidden' }}">
+                            <span class="text-slate-400 font-sans">➜</span>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-900 font-semibold border border-blue-200">
+                                📁 Mi unidad
+                            </span>
                         </span>
                         <span class="text-slate-400 font-sans">➜</span>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-900 font-bold border border-amber-200">
-                            📁 Pediatria
+                            📁 <span id="previewCarpetaPediatria">{{ $esDrivePred ? 'PEDIATRIA' : 'Pediatria' }}</span>
                         </span>
                         <span class="text-slate-400 font-sans">➜</span>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
@@ -537,7 +561,13 @@
                     <!-- Ruta completa exacta para el usuario -->
                     <div class="mt-2 text-[11px] font-mono bg-slate-900 text-teal-300 p-2 rounded-lg truncate flex items-center gap-2">
                         <span class="text-slate-400 shrink-0">Ruta final:</span>
-                        <span id="previewRutaCompleta" class="text-emerald-300 font-semibold truncate">{{ $discoPredeterminado ?? 'D' }}:\Pediatria\{{ date('Y-m-d') }}\nombre_paciente\</span>
+                        <span id="previewRutaCompleta" class="text-emerald-300 font-semibold truncate">
+                            @if($esDrivePred)
+                                {{ $discoPredeterminado ?? 'H' }}:\Mi unidad\PEDIATRIA\{{ date('Y-m-d') }}\nombre_paciente\
+                            @else
+                                {{ $discoPredeterminado ?? 'D' }}:\Pediatria\{{ date('Y-m-d') }}\nombre_paciente\
+                            @endif
+                        </span>
                     </div>
 
                     <!-- Archivos oficiales que se incluirán dentro del paciente -->
@@ -634,7 +664,7 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-bold text-[#123b5d]">Historial de Pacientes y Documentos</h3>
-                        <p class="text-xs text-slate-400">Explorador de carpetas generadas en <code class="font-mono text-slate-600 font-semibold">📁 Pediatria/</code></p>
+                        <p class="text-xs text-slate-400">Explorador de carpetas en <code class="font-mono text-slate-600 font-semibold">{{ $esDrivePred ? '☁️ Google Drive: ' . ($discoPredeterminado ?? 'H') . ':\Mi unidad\PEDIATRIA\\' : '📁 Pediatria/' }}</code></p>
                     </div>
                 </div>
                 <button type="button" onclick="cerrarModalHistorial()" class="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer" aria-label="Cerrar modal">
@@ -692,7 +722,7 @@
 
             <!-- Footer -->
             <div class="mt-4 border-t border-slate-100 pt-3 flex items-center justify-between text-xs text-slate-400 shrink-0">
-                <span class="truncate">Carpetas en disco: <code class="font-mono text-slate-600">Pediatria/{fecha}/{paciente}/</code></span>
+                <span class="truncate">Carpetas en disco: <code class="font-mono text-slate-600">{{ $esDrivePred ? ($discoPredeterminado ?? 'H') . ':\Mi unidad\PEDIATRIA\{fecha}\{paciente}\\' : ($discoPredeterminado ?? 'D') . ':\Pediatria\{fecha}\{paciente}\\' }}</code></span>
                 <button type="button" onclick="cerrarModalHistorial()" class="rounded-lg px-4 py-1.5 font-medium text-slate-600 hover:bg-slate-100 transition cursor-pointer">
                     Cerrar
                 </button>
@@ -975,19 +1005,19 @@
 
     <!-- Client-side Interactions -->
     <script>
-        const urlIngresarPaciente = "{{ route('documentos.ingresar-paciente') }}";
-        const urlHistorial = "{{ route('documentos.historial') }}";
-        const urlAbrirCarpeta = "{{ route('documentos.abrir-carpeta') }}";
-        const urlAbrirArchivo = "{{ route('documentos.abrir-archivo') }}";
-        const urlPowerPointListar = "{{ route('material.powerpoint.listar') }}";
-        const urlPowerPointSubir = "{{ route('material.powerpoint.subir') }}";
-        const urlPowerPointAbrir = "{{ route('material.powerpoint.abrir') }}";
-        const urlPowerPointAbrirCarpeta = "{{ route('material.powerpoint.abrir-carpeta') }}";
-        const urlPowerPointEliminar = "{{ route('material.powerpoint.eliminar') }}";
+        const urlIngresarPaciente = "{{ route('documentos.ingresar-paciente', [], false) }}";
+        const urlHistorial = "{{ route('documentos.historial', [], false) }}";
+        const urlAbrirCarpeta = "{{ route('documentos.abrir-carpeta', [], false) }}";
+        const urlAbrirArchivo = "{{ route('documentos.abrir-archivo', [], false) }}";
+        const urlPowerPointListar = "{{ route('material.powerpoint.listar', [], false) }}";
+        const urlPowerPointSubir = "{{ route('material.powerpoint.subir', [], false) }}";
+        const urlPowerPointAbrir = "{{ route('material.powerpoint.abrir', [], false) }}";
+        const urlPowerPointAbrirCarpeta = "{{ route('material.powerpoint.abrir-carpeta', [], false) }}";
+        const urlPowerPointEliminar = "{{ route('material.powerpoint.eliminar', [], false) }}";
         let alertTimeout = null;
         let debounceTimer = null;
         let debouncePptxTimer = null;
-        let discoSeleccionado = "{{ $discoPredeterminado ?? 'D' }}";
+        let discoSeleccionado = "{{ $discoPredeterminado ?? 'H' }}";
         const fechaHoyActual = "{{ date('Y-m-d') }}";
         let ultimoPacienteCreado = null;
         let ultimaPresentacionSubida = null;
@@ -1057,9 +1087,21 @@
             });
         }
 
+        // Mapa de discos que son Google Drive para la vista dinámica
+        const mapaDrives = {
+            @foreach(($discos ?? []) as $d)
+                '{{ $d["disco"] }}': {{ !empty($d["es_drive"]) ? 'true' : 'false' }},
+            @endforeach
+        };
+
+        function esDiscoGoogleDrive(letra) {
+            if (mapaDrives[letra] !== undefined) return mapaDrives[letra];
+            return letra === 'H' || letra === 'G';
+        }
+
         // --- SELECCIÓN DE DISCO Y PREVIEW ---
         function seleccionarDisco(letra) {
-            discoSeleccionado = (letra || 'D').toUpperCase();
+            discoSeleccionado = (letra || '{{ $discoPredeterminado ?? "H" }}').toUpperCase();
 
             document.querySelectorAll('.btn-disco-opcion').forEach(btn => {
                 btn.className = 'btn-disco-opcion px-2.5 py-1 rounded-md transition cursor-pointer text-xs text-slate-600 hover:bg-slate-200/70 font-medium';
@@ -1073,6 +1115,20 @@
             const previewDisco = document.getElementById('previewDiscoLetra');
             if (previewDisco) {
                 previewDisco.textContent = discoSeleccionado + ':';
+            }
+
+            const miUnidad = document.getElementById('previewMiUnidadWrapper');
+            const pediatriaLabel = document.getElementById('previewCarpetaPediatria');
+            const esDrive = esDiscoGoogleDrive(discoSeleccionado);
+
+            if (miUnidad) {
+                if (esDrive) {
+                    miUnidad.classList.remove('hidden');
+                    if (pediatriaLabel) pediatriaLabel.textContent = 'PEDIATRIA';
+                } else {
+                    miUnidad.classList.add('hidden');
+                    if (pediatriaLabel) pediatriaLabel.textContent = 'Pediatria';
+                }
             }
 
             actualizarPreviewCarpetaPaciente();
@@ -1094,8 +1150,9 @@
             }
 
             if (previewRuta) {
-                if (discoSeleccionado === 'G') {
-                    previewRuta.textContent = `G:\\Mi unidad\\PEDIATRIA\\${fechaHoyActual}\\${clean}\\`;
+                const esDrive = esDiscoGoogleDrive(discoSeleccionado);
+                if (esDrive) {
+                    previewRuta.textContent = `${discoSeleccionado}:\\Mi unidad\\PEDIATRIA\\${fechaHoyActual}\\${clean}\\`;
                 } else {
                     previewRuta.textContent = `${discoSeleccionado}:\\Pediatria\\${fechaHoyActual}\\${clean}\\`;
                 }
@@ -1274,9 +1331,15 @@
             const url = new URL(urlHistorial, window.location.origin);
             if (buscar) url.searchParams.append('buscar', buscar);
             if (fecha) url.searchParams.append('fecha', fecha);
+            if (discoSeleccionado) url.searchParams.append('disco', discoSeleccionado);
 
             fetch(url)
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`Error HTTP ${res.status}`);
+                    }
+                    return res.json();
+                })
                 .then(data => {
                     // Actualizar selector de fechas preservando selección
                     const selectFecha = document.getElementById('filtroHistorialFecha');
@@ -1342,7 +1405,9 @@
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
-                                        <span class="rounded-full bg-sky-50 text-sky-800 border border-sky-200 px-2.5 py-0.5 text-[11px] font-bold font-mono">💾 Disco ${p.disco || 'D'}:</span>
+                                        ${(p.disco === 'H' || (typeof mapaDrives !== 'undefined' && mapaDrives[p.disco]))
+                                            ? `<span class="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold font-mono">☁️ Google Drive (${p.disco || 'H'}:)</span>`
+                                            : `<span class="rounded-full bg-sky-50 text-sky-800 border border-sky-200 px-2.5 py-0.5 text-[11px] font-bold font-mono">💾 Disco ${p.disco || 'D'}:</span>`}
                                         <span class="rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 font-mono">📅 ${p.fecha_formateada}</span>
                                         <button type="button" onclick="abrirCarpetaDirecta('${p.fecha}', '${p.carpeta}', '${p.disco}')" class="inline-flex items-center gap-1 rounded-lg bg-[#248294] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#1a6877] transition cursor-pointer" title="Abrir carpeta en el Explorador de Windows">
                                             <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1546,7 +1611,12 @@
             if (discoSeleccionado) url.searchParams.append('disco', discoSeleccionado);
 
             fetch(url)
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`Error HTTP ${res.status}`);
+                    }
+                    return res.json();
+                })
                 .then(data => {
                     // Actualizar selector de temas preservando selección
                     const selectTema = document.getElementById('filtroPowerPointTema');

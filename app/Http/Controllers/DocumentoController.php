@@ -41,55 +41,95 @@ class DocumentoController extends Controller
     ];
 
     /**
-     * Obtiene la lista de discos del sistema con su estado y ruta a Pediatria.
-     *
-     * @return array<int, array{disco: string, raiz: string, ruta_pediatria: string, escribible: bool, es_predeterminado: bool}>
+     * Verifica si una letra de disco corresponde a una unidad de Google Drive Desktop.
      */
-    public function obtenerDiscosDisponibles(): array
+    public function esGoogleDrive(string $discoLetra): bool
     {
-        $discos = [];
-        $letras = ['G', 'D', 'C', 'E', 'F'];
-        $discoPredeterminado = $this->obtenerDiscoPredeterminado();
+        $letra = strtoupper(trim($discoLetra, ':\\/ '));
 
-        foreach ($letras as $letra) {
-            $raiz = "{$letra}:/";
-            if (is_dir($raiz)) {
-                $escribible = @is_writable($raiz);
-                $rutaPediatria = "{$letra}:\\Pediatria";
-                $esDrive = ($letra === 'G');
+        return is_dir("{$letra}:/Mi unidad") || is_dir("{$letra}:/My Drive");
+    }
 
-                if ($letra === 'G') {
-                    if (is_dir('G:/Mi unidad/PEDIATRIA')) {
-                        $rutaPediatria = 'G:\\Mi unidad\\PEDIATRIA';
-                        $escribible = @is_writable('G:/Mi unidad/PEDIATRIA');
-                    } elseif (is_dir('G:/Mi unidad')) {
-                        $rutaPediatria = 'G:\\Mi unidad\\Pediatria';
-                        $escribible = @is_writable('G:/Mi unidad');
-                    }
-                } elseif ($letra === 'C' && ! $escribible && ! is_dir('C:/Pediatria')) {
-                    $rutaPediatria = str_replace('/', '\\', base_path('Pediatria'));
-                }
+    /**
+     * Verifica si una unidad contiene la carpeta o acceso directo a PEDIATRIA.
+     */
+    public function tienePediatria(string $discoLetra): bool
+    {
+        $letra = strtoupper(trim($discoLetra, ':\\/ '));
+        if (! $this->esGoogleDrive($letra)) {
+            return is_dir("{$letra}:/Pediatria");
+        }
 
-                $discos[] = [
-                    'disco' => $letra,
-                    'etiqueta' => $esDrive ? 'Google Drive (G:)' : "Disco {$letra}:",
-                    'es_drive' => $esDrive,
-                    'raiz' => "{$letra}:\\",
-                    'ruta_pediatria' => $rutaPediatria,
-                    'escribible' => $escribible || is_dir($rutaPediatria),
-                    'es_predeterminado' => ($letra === $discoPredeterminado),
-                ];
+        $subcarpeta = is_dir("{$letra}:/Mi unidad") ? 'Mi unidad' : 'My Drive';
+
+        // 1. Acceso directo de Google Drive (.shortcut-targets-by-id)
+        $folderId = env('GOOGLE_DRIVE_FOLDER_ID');
+        if (! empty($folderId)) {
+            if (is_dir("{$letra}:/.shortcut-targets-by-id/{$folderId}/PEDIATRIA") || is_dir("{$letra}:/.shortcut-targets-by-id/{$folderId}")) {
+                return true;
             }
         }
 
+        $shortcuts = glob("{$letra}:/.shortcut-targets-by-id/*/PEDIATRIA");
+        if (! empty($shortcuts) && is_dir($shortcuts[0])) {
+            return true;
+        }
+
+        // 2. Carpeta física directa
+        if (is_dir("{$letra}:/{$subcarpeta}/PEDIATRIA")) {
+            return true;
+        }
+
+        // 3. Archivo de acceso directo de Windows creado por Google Drive
+        return file_exists("{$letra}:/{$subcarpeta}/PEDIATRIA.lnk");
+    }
+
+    /**
+     * Obtiene la lista de discos del sistema con su estado y ruta a Pediatria.
+     * Prioriza Google Drive oficial (H:) como la única unidad de Drive activa para evitar duplicados.
+     *
+     * @return array<int, array{disco: string, etiqueta: string, es_drive: bool, raiz: string, ruta_pediatria: string, escribible: bool, es_predeterminado: bool}>
+     */
+    public function obtenerDiscosDisponibles(): array
+    {
+        $discoPredeterminado = $this->obtenerDiscoPredeterminado();
+        $discos = [];
+
+        // 1. Google Drive Oficial o el Google Drive activo del equipo
+        if ($this->esGoogleDrive($discoPredeterminado)) {
+            $discos[] = [
+                'disco' => $discoPredeterminado,
+                'etiqueta' => "Google Drive ({$discoPredeterminado}:)",
+                'es_drive' => true,
+                'raiz' => "{$discoPredeterminado}:\\",
+                'ruta_pediatria' => str_replace('/', '\\', $this->getRutaBasePediatria($discoPredeterminado)),
+                'escribible' => true,
+                'es_predeterminado' => true,
+            ];
+        }
+
+        // 2. Si existe Disco local D:, permitirlo como respaldo secundario
+        if (is_dir('D:/') && @is_writable('D:/')) {
+            $discos[] = [
+                'disco' => 'D',
+                'etiqueta' => count($discos) > 0 ? 'Disco D: (Respaldo)' : 'Disco D: (Automático)',
+                'es_drive' => false,
+                'raiz' => 'D:\\',
+                'ruta_pediatria' => 'D:\\Pediatria',
+                'escribible' => true,
+                'es_predeterminado' => ($discoPredeterminado === 'D'),
+            ];
+        }
+
+        // 3. Fallback a Disco C: solo si no hay ni Google Drive ni D:
         if (empty($discos)) {
-            $discoBase = strtoupper(substr(base_path(), 0, 1));
+            $discoBase = strtoupper(substr(base_path(), 0, 1)) ?: 'C';
             $discos[] = [
                 'disco' => $discoBase,
-                'etiqueta' => "Disco {$discoBase}:",
+                'etiqueta' => "Disco {$discoBase}: (Local)",
                 'es_drive' => false,
                 'raiz' => "{$discoBase}:\\",
-                'ruta_pediatria' => str_replace('/', '\\', base_path('Pediatria')),
+                'ruta_pediatria' => "{$discoBase}:\\Pediatria",
                 'escribible' => true,
                 'es_predeterminado' => true,
             ];
@@ -99,24 +139,42 @@ class DocumentoController extends Controller
     }
 
     /**
-     * Determina el disco predeterminado (Google Drive G: si está presente, D: si existe, o C:).
+     * Determina el disco predeterminado con reconocimiento automático inteligente:
+     * Prioridad 1: Cualquier unidad Google Drive que contenga PEDIATRIA (física o por acceso directo).
+     * Prioridad 2: Cualquier otra letra con Google Drive.
+     * Prioridad 3: Disco de datos local (D:) si existe en la computadora.
+     * Prioridad 4: Disco del sistema o base (C:).
      */
     public function obtenerDiscoPredeterminado(): string
     {
         $configDisco = env('PEDIATRIA_DISCO');
         if ($configDisco && is_dir(strtoupper($configDisco).':/')) {
-            return strtoupper($configDisco);
+            $letraConfig = strtoupper($configDisco);
+            if ($this->tienePediatria($letraConfig)) {
+                return $letraConfig;
+            }
         }
 
-        // Si Google Drive para escritorio está montado en G: y tiene PEDIATRIA
-        if (is_dir('G:/Mi unidad/PEDIATRIA') && @is_writable('G:/Mi unidad/PEDIATRIA')) {
-            return 'G';
+        // Buscar primero cualquier unidad de Google Drive que tenga PEDIATRIA (física o por acceso directo)
+        foreach (['H', 'G', 'I', 'J', 'K', 'E', 'F'] as $letra) {
+            if ($this->esGoogleDrive($letra) && $this->tienePediatria($letra)) {
+                return $letra;
+            }
         }
 
+        // Si ninguna tiene Pediatria todavía pero hay Google Drive, usar la primera que encontremos
+        foreach (['H', 'G', 'I', 'J', 'K', 'E', 'F'] as $letra) {
+            if ($this->esGoogleDrive($letra)) {
+                return $letra;
+            }
+        }
+
+        // Prioridad local: Disco D:
         if (is_dir('D:/') && @is_writable('D:/')) {
             return 'D';
         }
 
+        // Prioridad local: Disco del proyecto o C:
         $letraProyecto = strtoupper(substr(base_path(), 0, 1));
 
         return $letraProyecto ?: 'C';
@@ -124,24 +182,53 @@ class DocumentoController extends Controller
 
     /**
      * Resuelve la ruta base para la carpeta Pediatria según el disco elegido.
+     * Detecta automáticamente carpetas compartidas agregadas como accesos directos
+     * en Google Drive para escritorio (.shortcut-targets-by-id).
      */
     public function getRutaBasePediatria(?string $disco = null): string
     {
         $discoLetra = $disco ? strtoupper(trim($disco, ':\\/ ')) : $this->obtenerDiscoPredeterminado();
 
-        if (! in_array($discoLetra, ['G', 'C', 'D', 'E', 'F']) || ! is_dir("{$discoLetra}:/")) {
+        if (! is_dir("{$discoLetra}:/")) {
             $discoLetra = $this->obtenerDiscoPredeterminado();
         }
 
-        if ($discoLetra === 'G') {
-            if (is_dir('G:/Mi unidad/PEDIATRIA')) {
-                return 'G:/Mi unidad/PEDIATRIA';
-            }
-            if (is_dir('G:/Pediatria')) {
-                return 'G:/Pediatria';
+        // Si es Google Drive (cualquier letra con 'Mi unidad' o 'My Drive', e.g. H: o G: o I:)
+        if ($this->esGoogleDrive($discoLetra)) {
+            $subcarpeta = is_dir("{$discoLetra}:/Mi unidad") ? 'Mi unidad' : 'My Drive';
+
+            // 1. Prioridad: Verificar si es un acceso directo de Google Drive (.shortcut-targets-by-id)
+            $folderId = env('GOOGLE_DRIVE_FOLDER_ID');
+            if (! empty($folderId)) {
+                $candidatosShortcut = [
+                    "{$discoLetra}:/.shortcut-targets-by-id/{$folderId}/PEDIATRIA",
+                    "{$discoLetra}:/.shortcut-targets-by-id/{$folderId}",
+                ];
+                foreach ($candidatosShortcut as $cand) {
+                    if (is_dir($cand)) {
+                        return $cand;
+                    }
+                }
             }
 
-            return 'G:/Mi unidad/Pediatria';
+            $shortcutTargets = glob("{$discoLetra}:/.shortcut-targets-by-id/*/PEDIATRIA");
+            if (! empty($shortcutTargets) && is_dir($shortcutTargets[0])) {
+                return $shortcutTargets[0];
+            }
+
+            // 2. Si no es un acceso directo, verificar si existe la carpeta física normal en Mi unidad
+            $rutaPediatriaDrive = "{$discoLetra}:/{$subcarpeta}/PEDIATRIA";
+            if (is_dir($rutaPediatriaDrive)) {
+                return $rutaPediatriaDrive;
+            }
+
+            // 3. Si no existe ninguno y tampoco hay acceso directo .lnk, crear la carpeta física
+            $rutaLnk = "{$discoLetra}:/{$subcarpeta}/PEDIATRIA.lnk";
+            if (! file_exists($rutaLnk)) {
+                @File::ensureDirectoryExists($rutaPediatriaDrive, 0755, true);
+            }
+
+            return $rutaPediatriaDrive;
         }
 
         if ($discoLetra === 'C' && ! @is_writable('C:/') && ! is_dir('C:/Pediatria')) {
@@ -214,7 +301,18 @@ class DocumentoController extends Controller
                     continue;
                 }
 
-                $rutaDestinoArchivo = "{$carpetaDestino}/{$nombreArchivo}";
+                // Normalizar nombres a los oficiales para garantizar consistencia médica
+                $nombreOficial = $nombreArchivo;
+                $lower = mb_strtolower($nombreArchivo);
+                if (str_contains($lower, 'historia') || str_contains($lower, 'clinica')) {
+                    $nombreOficial = 'Historia_Clinica.docx';
+                } elseif (str_contains($lower, 'indicacion') || str_contains($lower, 'indicaciones') || str_contains($lower, 'inducacion')) {
+                    $nombreOficial = 'Indicaciones.docx';
+                } elseif (str_contains($lower, 'admision') || str_contains($lower, 'arixa') || str_contains($lower, 'adm')) {
+                    $nombreOficial = 'Admision.docx';
+                }
+
+                $rutaDestinoArchivo = "{$carpetaDestino}/{$nombreOficial}";
 
                 copy($file->getRealPath(), $rutaDestinoArchivo);
 
@@ -223,18 +321,18 @@ class DocumentoController extends Controller
                     ? number_format($bytes / 1048576, 2).' MB'
                     : number_format($bytes / 1024, 0).' KB';
 
-                $nombreLimpio = pathinfo($nombreArchivo, PATHINFO_FILENAME);
+                $nombreLimpio = pathinfo($nombreOficial, PATHINFO_FILENAME);
                 $archivosGenerados[] = [
                     'tipo' => Str::slug($nombreLimpio),
-                    'titulo' => $nombreLimpio,
-                    'nombre' => $nombreArchivo,
+                    'titulo' => str_replace('_', ' ', $nombreLimpio),
+                    'nombre' => $nombreOficial,
                     'tamano' => $tamano,
                     'url' => route('documentos.descargar-archivo', [
                         'fecha' => $fechaHoy,
                         'paciente' => $pacienteDir,
-                        'archivo' => $nombreArchivo,
+                        'archivo' => $nombreOficial,
                         'disco' => $letraDisco,
-                    ]),
+                    ], false),
                 ];
             }
         }
@@ -265,7 +363,7 @@ class DocumentoController extends Controller
                             'paciente' => $pacienteDir,
                             'archivo' => $nombreArchivo,
                             'disco' => $letraDisco,
-                        ]),
+                        ], false),
                     ];
                 } else {
                     $plantillasFaltantes[] = $info['archivo'];
@@ -274,11 +372,11 @@ class DocumentoController extends Controller
         }
 
         $driveInfo = null;
-        if ($letraDisco === 'G') {
+        if ($this->esGoogleDrive($letraDisco)) {
             $driveInfo = [
                 'sincronizado' => true,
                 'metodo' => 'google_drive_desktop',
-                'mensaje' => 'Guardado y sincronizado automáticamente en Google Drive',
+                'mensaje' => "Guardado y sincronizado automáticamente en Google Drive ({$letraDisco}:)",
             ];
         } elseif ($this->googleDrive->isConfigured()) {
             try {
@@ -307,14 +405,14 @@ class DocumentoController extends Controller
             'fecha' => $fechaHoy,
             'disco' => $letraDisco,
             'ruta_completa' => str_replace('/', '\\', $carpetaDestino),
-            'ruta_relativa' => "{$letraDisco}:\\Pediatria\\{$fechaHoy}\\{$pacienteDir}",
+            'ruta_relativa' => str_replace('/', '\\', $carpetaDestino),
             'archivos' => $archivosGenerados,
             'plantillas_faltantes' => $plantillasFaltantes,
             'zip_url' => route('documentos.descargar-zip', [
                 'fecha' => $fechaHoy,
                 'paciente' => $pacienteDir,
                 'disco' => $letraDisco,
-            ]),
+            ], false),
             'drive' => $driveInfo,
         ]);
     }
@@ -360,21 +458,8 @@ class DocumentoController extends Controller
         if ($filtroDisco) {
             $rutasPediatria[] = $this->getRutaBasePediatria($filtroDisco);
         } else {
-            $rutaPredeterminada = $this->getRutaBasePediatria();
-            $rutasPediatria[] = $rutaPredeterminada;
-
-            $rutaProyecto = base_path('Pediatria');
-            if (! in_array($rutaProyecto, $rutasPediatria) && File::exists($rutaProyecto)) {
-                $rutasPediatria[] = $rutaProyecto;
-            }
-
-            if (File::exists('D:/Pediatria') && ! in_array('D:/Pediatria', $rutasPediatria)) {
-                $rutasPediatria[] = 'D:/Pediatria';
-            }
-
-            if (File::exists('G:/Mi unidad/PEDIATRIA') && ! in_array('G:/Mi unidad/PEDIATRIA', $rutasPediatria)) {
-                $rutasPediatria[] = 'G:/Mi unidad/PEDIATRIA';
-            }
+            // Usar únicamente el disco predeterminado actual para no mezclar pacientes de otras cuentas o discos
+            $rutasPediatria[] = $this->getRutaBasePediatria();
         }
 
         $fechasDisponibles = [];
@@ -442,7 +527,7 @@ class DocumentoController extends Controller
                                 'paciente' => $pacienteNombreCarpeta,
                                 'archivo' => $file->getFilename(),
                                 'disco' => $discoLetra,
-                            ]),
+                            ], false),
                         ];
                     }
 
@@ -455,14 +540,14 @@ class DocumentoController extends Controller
                         'fecha_formateada' => date('d/m/Y', strtotime($fecha)),
                         'disco' => $discoLetra,
                         'ruta_completa' => str_replace('/', '\\', $carpetaPaciente),
-                        'ruta_relativa' => "{$discoLetra}:\\Pediatria\\{$fecha}\\{$pacienteNombreCarpeta}",
+                        'ruta_relativa' => str_replace('/', '\\', $carpetaPaciente),
                         'total_archivos' => count($archivos),
                         'archivos' => $archivos,
                         'zip_url' => route('documentos.descargar-zip', [
                             'fecha' => $fecha,
                             'paciente' => $pacienteNombreCarpeta,
                             'disco' => $discoLetra,
-                        ]),
+                        ], false),
                         'hora' => date('H:i', $mtime),
                         '_mtime' => $mtime,
                     ];

@@ -44,13 +44,9 @@ class MaterialDocenteController extends Controller
 
         if (! empty($disco)) {
             $candidatos[] = $this->documentoController->getRutaBasePediatria($disco).'/MaterialDocente/PowerPoint';
+        } else {
+            $candidatos[] = $this->documentoController->getRutaBasePediatria().'/MaterialDocente/PowerPoint';
         }
-
-        $candidatos[] = $this->documentoController->getRutaBasePediatria().'/MaterialDocente/PowerPoint';
-        $candidatos[] = 'D:/Pediatria/MaterialDocente/PowerPoint';
-        $candidatos[] = 'C:/Pediatria/MaterialDocente/PowerPoint';
-        $candidatos[] = base_path('Pediatria/MaterialDocente/PowerPoint');
-        $candidatos[] = base_path('MaterialDocente/PowerPoint');
 
         return array_values(array_unique($candidatos));
     }
@@ -133,7 +129,7 @@ class MaterialDocenteController extends Controller
                         $tema,
                         $tituloLegible,
                         $letraDisco,
-                        "Pediatria/MaterialDocente/PowerPoint/{$tema}/{$nombreArchivo}"
+                        str_replace('/', '\\', $file->getRealPath())
                     );
                 }
             }
@@ -213,7 +209,7 @@ class MaterialDocenteController extends Controller
                 'tema' => $tema,
                 'archivo' => $file->getFilename(),
                 'disco' => $disco,
-            ]),
+            ], false),
         ];
     }
 

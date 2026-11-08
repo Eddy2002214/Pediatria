@@ -27,4 +27,7 @@ Homestead.yaml
 Thumbs.db
 storage/app/*.json
 *google-credentials*.json
+/dist
+/nativephp
+
 

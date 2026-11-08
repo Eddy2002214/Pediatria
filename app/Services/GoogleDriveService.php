@@ -118,18 +118,42 @@ class GoogleDriveService
     }
 
     /**
+     * Get or auto-detect the templates folder ID inside root folder.
+     */
+    public function getTemplatesFolderId(): ?string
+    {
+        if (! empty($this->templatesFolderId)) {
+            return $this->templatesFolderId;
+        }
+
+        if (! empty($this->rootFolderId)) {
+            try {
+                $folder = $this->findOrCreateFolder('PLANTILLAS', $this->rootFolderId);
+                $this->templatesFolderId = $folder['id'];
+
+                return $this->templatesFolderId;
+            } catch (\Exception $e) {
+                Log::warning('No se pudo encontrar o crear la carpeta PLANTILLAS en Google Drive: '.$e->getMessage());
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * List all template files inside the templates folder.
      *
      * @return array<int, array{id: string, name: string, mimeType: string}>
      */
     public function getTemplateFiles(): array
     {
-        if (empty($this->templatesFolderId)) {
+        $templatesId = $this->getTemplatesFolderId();
+        if (empty($templatesId)) {
             return [];
         }
 
         $drive = $this->getDriveService();
-        $query = "'{$this->templatesFolderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'";
+        $query = "'{$templatesId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'";
 
         $response = $drive->files->listFiles([
             'q' => $query,
