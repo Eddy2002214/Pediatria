@@ -53,7 +53,14 @@
                             soft: '#f4f8fc',
                         }
                     }
-                }
+                },
+                safelist: [
+                    'bg-teal-50', 'text-teal-700', 'border-teal-200/60',
+                    'bg-indigo-50', 'text-indigo-700', 'border-indigo-200/60',
+                    'bg-rose-50', 'text-rose-700', 'border-rose-200/60',
+                    'bg-emerald-50', 'text-emerald-700', 'border-emerald-200/60',
+                    'bg-blue-50', 'text-blue-700', 'border-blue-200/60',
+                ]
             }
         </script>
     @endif
@@ -101,7 +108,7 @@
     <!-- ======================================================== -->
     <!-- TOAST DE NOTIFICACIONES FLOTANTE (RESPONSIVO)            -->
     <!-- ======================================================== -->
-    <div id="toastNotification" class="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-2xl bg-[#123b5d] px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-2xl transition-all duration-300 opacity-0 pointer-events-none translate-y-3 border border-white/10 max-w-[90vw]">
+    <div id="toastNotification" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: none;" class="items-center gap-3 rounded-2xl bg-[#123b5d] px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-2xl transition-all duration-300 opacity-0 pointer-events-none translate-y-3 border border-white/10 max-w-[90vw]">
         <i id="toastIcon" data-lucide="check" class="size-4 sm:size-5 text-[#55d6c2] shrink-0"></i>
         <span id="toastMessage" class="truncate">Operación realizada con éxito</span>
     </div>
@@ -114,7 +121,7 @@
         <!-- ======================================================== -->
         <!-- SIDEBAR DE NAVEGACIÓN (ADAPTABLE A CUALQUIER RESOLUCIÓN) -->
         <!-- ======================================================== -->
-        <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-[260px] xl:w-[275px] flex-col bg-[#123b5d] px-4.5 py-5 sm:px-5 sm:py-6 text-white transition-transform duration-200 lg:static lg:translate-x-0 -translate-x-full overflow-y-auto shrink-0 shadow-xl">
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-[260px] xl:w-[275px] flex-col bg-[#123b5d] px-4.5 py-5 sm:px-5 sm:py-6 text-white transition-transform duration-200 md:static md:translate-x-0 -translate-x-full overflow-y-auto shrink-0 shadow-xl">
             
             <!-- Logo e Identidad -->
             <div class="mb-6 sm:mb-8 flex items-center justify-between px-2">
@@ -127,7 +134,7 @@
                         <div class="mt-0.5 text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-[#a5ced4] font-bold">Sistema clínico</div>
                     </div>
                 </div>
-                <button type="button" onclick="toggleSidebar(false)" class="rounded-xl p-1 text-slate-300 hover:bg-white/10 lg:hidden cursor-pointer" aria-label="Cerrar menú">
+                <button type="button" onclick="toggleSidebar(false)" class="rounded-xl p-1 text-slate-300 hover:bg-white/10 md:hidden cursor-pointer" aria-label="Cerrar menú">
                     <i data-lucide="x" class="size-5"></i>
                 </button>
             </div>
@@ -204,7 +211,7 @@
         </aside>
 
         <!-- Overlay móvil para cerrar sidebar -->
-        <div id="sidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-xs hidden lg:hidden"></div>
+        <div id="sidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-xs hidden md:hidden"></div>
 
         <!-- ======================================================== -->
         <!-- ÁREA DE CONTENIDO CENTRAL (FLUIDA Y CON SCROLL PROPIO)   -->
@@ -214,7 +221,7 @@
             <!-- Topbar Header -->
             <header class="sticky top-0 z-20 flex h-[66px] sm:h-[74px] items-center justify-between border-b border-slate-200/70 bg-[#f4f8fc]/90 px-4 sm:px-6 lg:px-8 xl:px-10 backdrop-blur-md shrink-0">
                 <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <button type="button" onclick="toggleSidebar(true)" class="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100 lg:hidden cursor-pointer shrink-0" aria-label="Abrir menú">
+                    <button type="button" onclick="toggleSidebar(true)" class="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100 md:hidden cursor-pointer shrink-0" aria-label="Abrir menú">
                         <i data-lucide="menu" class="size-4.5"></i>
                     </button>
                     <div class="text-[11px] sm:text-xs font-semibold text-slate-400 flex items-center gap-1.5 truncate">
@@ -1539,11 +1546,22 @@
         function notify(msg) {
             const toast = document.getElementById('toastNotification');
             const msgEl = document.getElementById('toastMessage');
+            if (!toast || !msgEl) return;
             msgEl.innerText = msg;
 
-            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
-            setTimeout(() => {
+            toast.style.display = 'flex';
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
+            });
+
+            clearTimeout(window.__toastTimer);
+            window.__toastTimer = setTimeout(() => {
                 toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
+                setTimeout(() => {
+                    if (toast.classList.contains('opacity-0')) {
+                        toast.style.display = 'none';
+                    }
+                }, 350);
             }, 3000);
         }
 
@@ -2467,28 +2485,28 @@
             let html = "";
             lista.forEach(deck => {
                 const t = normalizarTexto(deck.tema || 'General');
-                let gradient = 'from-[#123b5d] via-[#1a4a73] to-[#248294]';
+                let bgGradient = 'background: linear-gradient(135deg, #123b5d 0%, #1a4a73 50%, #248294 100%);';
                 let pillClass = 'bg-teal-50 text-teal-700 border-teal-200/60';
                 let iconName = 'presentation';
 
                 if (t.includes('infecto')) {
-                    gradient = 'from-[#0d5951] via-[#115e59] to-[#14b8a6]';
+                    bgGradient = 'background: linear-gradient(135deg, #0d5951 0%, #115e59 50%, #14b8a6 100%);';
                     pillClass = 'bg-teal-50 text-teal-700 border-teal-200/60';
                     iconName = 'presentation';
                 } else if (t.includes('neonato') || t.includes('uci')) {
-                    gradient = 'from-[#312e81] via-[#4338ca] to-[#6366f1]';
+                    bgGradient = 'background: linear-gradient(135deg, #312e81 0%, #4338ca 50%, #6366f1 100%);';
                     pillClass = 'bg-indigo-50 text-indigo-700 border-indigo-200/60';
                     iconName = 'activity';
                 } else if (t.includes('urgen') || t.includes('guardia')) {
-                    gradient = 'from-[#881337] via-[#be123c] to-[#f43f5e]';
+                    bgGradient = 'background: linear-gradient(135deg, #881337 0%, #be123c 50%, #f43f5e 100%);';
                     pillClass = 'bg-rose-50 text-rose-700 border-rose-200/60';
                     iconName = 'alert-circle';
                 } else if (t.includes('gastro')) {
-                    gradient = 'from-[#064e3b] via-[#047857] to-[#10b981]';
+                    bgGradient = 'background: linear-gradient(135deg, #064e3b 0%, #047857 50%, #10b981 100%);';
                     pillClass = 'bg-emerald-50 text-emerald-700 border-emerald-200/60';
                     iconName = 'book-open';
                 } else if (t.includes('neumo')) {
-                    gradient = 'from-[#1e3a8a] via-[#1d4ed8] to-[#3b82f6]';
+                    bgGradient = 'background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #3b82f6 100%);';
                     pillClass = 'bg-blue-50 text-blue-700 border-blue-200/60';
                     iconName = 'wind';
                 }
@@ -2499,7 +2517,7 @@
                 html += `
                     <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_20px_rgba(18,59,93,0.05)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between group">
                         <!-- Cabecera con Gradiente de la Especialidad -->
-                        <div class="relative bg-gradient-to-br ${gradient} p-4 sm:p-5 text-white flex flex-col justify-between min-h-[145px]">
+                        <div style="${bgGradient}" class="relative p-4 sm:p-5 text-white flex flex-col justify-between min-h-[145px]">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="rounded-full bg-black/25 backdrop-blur-xs px-2.5 py-0.5 text-[9px] font-bold text-white/90">
                                     • PPTX · ${deck.tema}
