@@ -146,16 +146,19 @@ class MaterialDocenteController extends Controller
 
         // Aplicar filtros
         if (! empty($filtroTema)) {
-            $presentaciones = array_filter($presentaciones, function ($item) use ($filtroTema) {
-                return strcasecmp($item['tema'], $filtroTema) === 0;
+            $filtroNorm = $this->normalizarTextoSimple($filtroTema);
+            $presentaciones = array_filter($presentaciones, function ($item) use ($filtroNorm) {
+                $temaNorm = $this->normalizarTextoSimple($item['tema']);
+                return $temaNorm === $filtroNorm || str_contains($temaNorm, $filtroNorm) || str_contains($filtroNorm, $temaNorm);
             });
         }
 
         if (! empty($filtroBuscar)) {
-            $presentaciones = array_filter($presentaciones, function ($item) use ($filtroBuscar) {
-                $enTitulo = mb_stripos($item['titulo'], $filtroBuscar) !== false;
-                $enArchivo = mb_stripos($item['archivo'], $filtroBuscar) !== false;
-                $enTema = mb_stripos($item['tema'], $filtroBuscar) !== false;
+            $buscarNorm = $this->normalizarTextoSimple($filtroBuscar);
+            $presentaciones = array_filter($presentaciones, function ($item) use ($buscarNorm) {
+                $enTitulo = str_contains($this->normalizarTextoSimple($item['titulo']), $buscarNorm);
+                $enArchivo = str_contains($this->normalizarTextoSimple($item['archivo']), $buscarNorm);
+                $enTema = str_contains($this->normalizarTextoSimple($item['tema']), $buscarNorm);
 
                 return $enTitulo || $enArchivo || $enTema;
             });
@@ -194,6 +197,21 @@ class MaterialDocenteController extends Controller
         $fecha = date('Y-m-d H:i', $mtime);
         $fechaFormateada = date('d/m/Y H:i', $mtime);
 
+        $expositor = null;
+        $tipoActividad = null;
+        $fechaSesion = null;
+
+        $metaFile = dirname($file->getRealPath()).'/'.pathinfo($file->getFilename(), PATHINFO_FILENAME).'.meta.json';
+        if (File::exists($metaFile)) {
+            $metaData = json_decode((string) File::get($metaFile), true) ?: [];
+            if (! empty($metaData['titulo'])) {
+                $titulo = $metaData['titulo'];
+            }
+            $expositor = $metaData['expositor'] ?? null;
+            $tipoActividad = $metaData['tipo_actividad'] ?? null;
+            $fechaSesion = $metaData['fecha_sesion'] ?? null;
+        }
+
         return [
             'id' => md5($file->getRealPath()),
             'archivo' => $file->getFilename(),
@@ -201,8 +219,11 @@ class MaterialDocenteController extends Controller
             'tema' => $tema,
             'extension' => strtolower($file->getExtension()),
             'tamano' => $tamano,
+            'bytes' => $bytes,
             'fecha' => $fecha,
-            'fecha_formateada' => $fechaFormateada,
+            'fecha_formateada' => $fechaSesion ?: $fechaFormateada,
+            'expositor' => $expositor,
+            'tipo_actividad' => $tipoActividad,
             'disco' => $disco,
             'ruta_relativa' => $rutaRelativa,
             'url_descarga' => route('material.powerpoint.descargar', [
@@ -214,6 +235,20 @@ class MaterialDocenteController extends Controller
     }
 
     /**
+     * Normaliza un texto eliminando tildes y pasando a minúsculas.
+     */
+    protected function normalizarTextoSimple(string $str): string
+    {
+        $transliterator = \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC');
+        if ($transliterator) {
+            $str = $transliterator->transliterate($str);
+        } else {
+            $str = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $str);
+        }
+        return mb_strtolower(trim($str));
+    }
+
+    /**
      * Sube un nuevo archivo de PowerPoint asignándolo a un tema/categoría.
      */
     public function subir(Request $request): JsonResponse
@@ -222,6 +257,9 @@ class MaterialDocenteController extends Controller
             'archivo' => 'required|file|max:153600', // 150 MB
             'tema' => 'nullable|string|max:80',
             'titulo' => 'nullable|string|max:150',
+            'expositor' => 'nullable|string|max:150',
+            'fecha_sesion' => 'nullable|string|max:30',
+            'tipo_actividad' => 'nullable|string|max:80',
             'disco' => 'nullable|string|max:2',
         ]);
 
@@ -281,6 +319,24 @@ class MaterialDocenteController extends Controller
 
         $file->move($carpetaDestino, $nombreFinal);
 
+        // Guardar metadatos opcionales (expositor, fecha, tipo de actividad, título)
+        $expositor = trim((string) $request->input('expositor', ''));
+        $fechaSesion = trim((string) $request->input('fecha_sesion', ''));
+        $tipoActividad = trim((string) $request->input('tipo_actividad', ''));
+
+        if (! empty($tituloCustom) || ! empty($expositor) || ! empty($fechaSesion) || ! empty($tipoActividad)) {
+            $rutaMeta = "{$carpetaDestino}/".pathinfo($nombreFinal, PATHINFO_FILENAME).'.meta.json';
+            $metaData = [
+                'titulo' => $tituloCustom ?: $nombreBase,
+                'tema' => $temaInput,
+                'expositor' => $expositor ?: null,
+                'fecha_sesion' => $fechaSesion ?: null,
+                'tipo_actividad' => $tipoActividad ?: null,
+                'fecha_registro' => now()->toIso8601String(),
+            ];
+            @File::put($rutaMeta, json_encode($metaData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        }
+
         $rutaReal = str_replace('/', '\\', realpath($rutaCompleta) ?: $rutaCompleta);
 
         return response()->json([
@@ -292,6 +348,39 @@ class MaterialDocenteController extends Controller
                 'ruta_completa' => $rutaReal,
                 'disco' => $this->documentoController->extraerLetraDisco($rutaReal),
             ],
+        ]);
+    }
+
+    /**
+     * Crea una nueva carpeta/categoría para un tema docente en el disco.
+     */
+    public function crearTema(Request $request): JsonResponse
+    {
+        $request->validate([
+            'tema' => 'required|string|max:80',
+            'disco' => 'nullable|string|max:2',
+        ]);
+
+        $temaInput = trim((string) $request->input('tema', ''));
+        $temaSanitizado = $this->sanitizarNombre($temaInput);
+        if (empty($temaSanitizado)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nombre de tema inválido.',
+            ], 422);
+        }
+
+        $disco = (string) $request->input('disco', '');
+        $rutaBase = $this->documentoController->getRutaBasePediatria($disco);
+        $carpetaTema = "{$rutaBase}/MaterialDocente/PowerPoint/{$temaSanitizado}";
+
+        File::ensureDirectoryExists($carpetaTema, 0755, true);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Tema '{$temaInput}' creado exitosamente.",
+            'tema' => $temaInput,
+            'ruta' => str_replace('/', '\\', realpath($carpetaTema) ?: $carpetaTema),
         ]);
     }
 
@@ -461,6 +550,10 @@ class MaterialDocenteController extends Controller
         foreach ($candidatos as $cand) {
             if (File::exists($cand)) {
                 File::delete($cand);
+                $metaCand = dirname($cand).'/'.pathinfo($cand, PATHINFO_FILENAME).'.meta.json';
+                if (File::exists($metaCand)) {
+                    @File::delete($metaCand);
+                }
                 $borrado = true;
                 break;
             }

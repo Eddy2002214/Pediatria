@@ -707,28 +707,38 @@ class DocumentoController extends Controller
         $fechaSegura = basename((string) $request->input('fecha', ''));
         $pacienteSeguro = basename((string) $request->input('paciente', ''));
         $disco = (string) $request->input('disco', '');
-
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Fecha de paciente no válida.',
-            ], 404);
-        }
-
-        $candidatos = [];
-        if (! empty($disco)) {
-            $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}";
-        }
-        $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}";
-        $candidatos[] = "D:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
-        $candidatos[] = "C:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
-        $candidatos[] = base_path("Pediatria/{$fechaSegura}/{$pacienteSeguro}");
+        $rutaDirecta = trim((string) $request->input('ruta', $request->input('ruta_carpeta', '')));
 
         $rutaReal = null;
-        foreach ($candidatos as $cand) {
-            if (File::exists($cand)) {
-                $rutaReal = str_replace('/', '\\', realpath($cand) ?: $cand);
-                break;
+
+        // 1. Si viene la ruta absoluta directa validada
+        if (! empty($rutaDirecta) && File::exists($rutaDirecta)) {
+            $rutaReal = str_replace('/', '\\', realpath($rutaDirecta) ?: $rutaDirecta);
+        }
+
+        // 2. Si no, buscar en todos los candidatos posibles
+        if (! $rutaReal && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura)) {
+            $candidatos = [];
+            if (! empty($disco)) {
+                $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}";
+                $candidatos[] = "{$disco}:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+                $candidatos[] = "{$disco}:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
+                $candidatos[] = "{$disco}:/My Drive/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
+            }
+            $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "G:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "G:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "H:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "H:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "D:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "C:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = base_path("Pediatria/{$fechaSegura}/{$pacienteSeguro}");
+
+            foreach ($candidatos as $cand) {
+                if (File::exists($cand)) {
+                    $rutaReal = str_replace('/', '\\', realpath($cand) ?: $cand);
+                    break;
+                }
             }
         }
 
@@ -740,7 +750,8 @@ class DocumentoController extends Controller
         }
 
         if (PHP_OS_FAMILY === 'Windows') {
-            @pclose(@popen("cmd.exe /c start explorer.exe \"{$rutaReal}\"", 'r'));
+            @pclose(@popen("explorer.exe \"{$rutaReal}\"", 'r'));
+            @pclose(@popen("cmd.exe /c start \"\" \"{$rutaReal}\"", 'r'));
         }
 
         return response()->json([
@@ -759,28 +770,48 @@ class DocumentoController extends Controller
         $pacienteSeguro = basename((string) $request->input('paciente', ''));
         $archivoSeguro = basename((string) $request->input('archivo', ''));
         $disco = (string) $request->input('disco', '');
+        $rutaDirecta = trim((string) $request->input('ruta', $request->input('ruta_carpeta', '')));
 
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura)) {
+        if (empty($archivoSeguro)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Fecha de paciente no válida.',
-            ], 404);
+                'message' => 'Archivo no especificado.',
+            ], 422);
         }
-
-        $candidatos = [];
-        if (! empty($disco)) {
-            $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-        }
-        $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-        $candidatos[] = "D:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-        $candidatos[] = "C:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-        $candidatos[] = base_path("Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}");
 
         $rutaReal = null;
-        foreach ($candidatos as $cand) {
-            if (File::exists($cand)) {
-                $rutaReal = str_replace('/', '\\', realpath($cand) ?: $cand);
-                break;
+
+        // 1. Si viene la ruta absoluta directa de la carpeta
+        if (! empty($rutaDirecta)) {
+            $archivoDirecto = "{$rutaDirecta}/{$archivoSeguro}";
+            if (File::exists($archivoDirecto)) {
+                $rutaReal = str_replace('/', '\\', realpath($archivoDirecto) ?: $archivoDirecto);
+            }
+        }
+
+        // 2. Si no, buscar en todos los candidatos posibles
+        if (! $rutaReal && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura)) {
+            $candidatos = [];
+            if (! empty($disco)) {
+                $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+                $candidatos[] = "{$disco}:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+                $candidatos[] = "{$disco}:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+                $candidatos[] = "{$disco}:/My Drive/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            }
+            $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            $candidatos[] = "G:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            $candidatos[] = "G:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            $candidatos[] = "H:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            $candidatos[] = "H:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            $candidatos[] = "D:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            $candidatos[] = "C:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+            $candidatos[] = base_path("Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}");
+
+            foreach ($candidatos as $cand) {
+                if (File::exists($cand)) {
+                    $rutaReal = str_replace('/', '\\', realpath($cand) ?: $cand);
+                    break;
+                }
             }
         }
 
@@ -800,6 +831,193 @@ class DocumentoController extends Controller
             'mensaje' => "Archivo '{$archivoSeguro}' abierto en Windows.",
             'ruta' => $rutaReal,
         ]);
+    }
+
+    /**
+     * Extrae el texto de todos los documentos .docx del paciente para NotebookLM u otras IAs.
+     */
+    public function extraerTextoPaciente(Request $request): JsonResponse
+    {
+        $fechaSegura = basename((string) $request->input('fecha', ''));
+        $pacienteSeguro = basename((string) $request->input('paciente', ''));
+        $disco = (string) $request->input('disco', '');
+
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fecha de paciente no válida.',
+            ], 404);
+        }
+
+        $candidatos = [];
+        if ($disco) {
+            $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}";
+        }
+        $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}";
+        $candidatos[] = "D:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+        $candidatos[] = "C:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+        $candidatos[] = base_path("Pediatria/{$fechaSegura}/{$pacienteSeguro}");
+
+        $carpeta = null;
+        foreach ($candidatos as $cand) {
+            if (File::exists($cand)) {
+                $carpeta = $cand;
+                break;
+            }
+        }
+
+        if (! $carpeta) {
+            foreach (['G', 'H', 'D', 'C', 'I', 'J', 'E', 'F'] as $letra) {
+                if (is_dir("{$letra}:/")) {
+                    $rutaAlt = $this->getRutaBasePediatria($letra)."/{$fechaSegura}/{$pacienteSeguro}";
+                    if (File::exists($rutaAlt)) {
+                        $carpeta = $rutaAlt;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (! $carpeta) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontró la carpeta del paciente.',
+            ], 404);
+        }
+
+        $archivos = File::files($carpeta);
+        $documentosExtraidos = [];
+        $nombreLegible = str_replace(['_', '-'], ' ', $pacienteSeguro);
+
+        $ordenPreferido = ['Historia_Clinica.docx', 'Indicaciones.docx', 'Admision.docx'];
+
+        // Ordenar archivos para que Historia Clínica vaya primero
+        usort($archivos, function ($a, $b) use ($ordenPreferido) {
+            $idxA = array_search($a->getFilename(), $ordenPreferido);
+            $idxB = array_search($b->getFilename(), $ordenPreferido);
+            if ($idxA !== false && $idxB !== false) {
+                return $idxA <=> $idxB;
+            }
+            if ($idxA !== false) {
+                return -1;
+            }
+            if ($idxB !== false) {
+                return 1;
+            }
+
+            return strcmp($a->getFilename(), $b->getFilename());
+        });
+
+        $seccionesTexto = [];
+        $archivosInfo = [];
+
+        foreach ($archivos as $archivo) {
+            $nombreArchivo = $archivo->getFilename();
+            if (str_starts_with($nombreArchivo, '.') || str_starts_with($nombreArchivo, '~')) {
+                continue;
+            }
+
+            $ext = strtolower($archivo->getExtension());
+            if ($ext !== 'docx') {
+                continue;
+            }
+
+            $texto = $this->extraerTextoDocx($archivo->getRealPath());
+            $titulo = str_replace(['_', '.docx'], [' ', ''], $nombreArchivo);
+
+            $documentosExtraidos[] = [
+                'nombre' => $nombreArchivo,
+                'titulo' => $titulo,
+                'tamano' => number_format($archivo->getSize() / 1024, 0).' KB',
+                'caracteres' => mb_strlen($texto),
+                'texto' => $texto,
+            ];
+
+            $archivosInfo[] = [
+                'nombre' => $nombreArchivo,
+                'url' => route('documentos.descargar-archivo', [
+                    'fecha' => $fechaSegura,
+                    'paciente' => $pacienteSeguro,
+                    'archivo' => $nombreArchivo,
+                    'disco' => $disco ? $this->extraerLetraDisco($carpeta) : null,
+                ], false),
+            ];
+
+            $seccionesTexto[] = "================================================================================\n"
+                ."DOCUMENTO: ".strtoupper($titulo)."\n"
+                ."ARCHIVO: {$nombreArchivo}\n"
+                ."================================================================================\n\n"
+                .($texto ?: '(Sin contenido de texto detectado)')."\n";
+        }
+
+        $encabezado = "================================================================================\n"
+            ."EXPEDIENTE CLÍNICO PEDIÁTRICO COMPLETO PARA NOTEBOOKLM\n"
+            ."PACIENTE: ".strtoupper($nombreLegible)."\n"
+            ."FECHA DE INGRESO: {$fechaSegura}\n"
+            ."TOTAL DE DOCUMENTOS: ".count($documentosExtraidos)."\n"
+            ."================================================================================\n\n";
+
+        $textoCompleto = $encabezado.implode("\n\n", $seccionesTexto);
+
+        $promptSugerido = "Actúa como médico especialista en pediatría asistencial y analiza a fondo el expediente clínico adjunto del paciente {$nombreLegible} (Fecha: {$fechaSegura}).\n\n"
+            ."Genera un informe clínico estructurado con los siguientes puntos:\n"
+            ."1. Resumen de motivo de consulta, antecedentes relevantes y diagnóstico principal/diferencial.\n"
+            ."2. Cronología clínica y signos vitales registrados.\n"
+            ."3. Esquema terapéutico activo e indicaciones médicas (medicamento, dosis en mg/kg, vía e intervalo horario).\n"
+            ."4. Alertas farmacológicas, contraindicaciones, signos de alarma y pendientes críticos para el pase de guardia.";
+
+        return response()->json([
+            'success' => true,
+            'paciente' => $nombreLegible,
+            'paciente_carpeta' => $pacienteSeguro,
+            'fecha' => $fechaSegura,
+            'total_documentos' => count($documentosExtraidos),
+            'documentos' => $documentosExtraidos,
+            'archivos' => $archivosInfo,
+            'texto_completo' => $textoCompleto,
+            'prompt_sugerido' => $promptSugerido,
+            'ruta_carpeta' => str_replace('/', '\\', $carpeta),
+            'zip_url' => route('documentos.descargar-zip', [
+                'fecha' => $fechaSegura,
+                'paciente' => $pacienteSeguro,
+                'disco' => $disco ? $this->extraerLetraDisco($carpeta) : null,
+            ], false),
+        ]);
+    }
+
+    /**
+     * Extrae el texto plano de un archivo .docx comprimido en OpenXML.
+     */
+    private function extraerTextoDocx(string $rutaDocx): string
+    {
+        if (! file_exists($rutaDocx)) {
+            return '';
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($rutaDocx) !== true) {
+            return '';
+        }
+
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        if (! $xml) {
+            return '';
+        }
+
+        // Reemplazar saltos de párrafo en Word (<w:p>) por saltos de línea
+        $xml = preg_replace('/<\/w:p>/', "\n", $xml);
+        // Reemplazar saltos de línea en Word (<w:br/>) por saltos de línea
+        $xml = preg_replace('/<w:br[^>]*\/>/', "\n", $xml);
+        // Reemplazar pestañas en Word (<w:tab/>) por espacio
+        $xml = preg_replace('/<w:tab[^>]*\/>/', ' ', $xml);
+
+        $texto = strip_tags($xml);
+        // Limpiar múltiples saltos de línea seguidos
+        $texto = preg_replace("/\n{3,}/", "\n\n", $texto);
+
+        return trim($texto);
     }
 
     /**

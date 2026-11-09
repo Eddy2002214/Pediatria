@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function (DocumentoController $controller) {
     $discos = $controller->obtenerDiscosDisponibles();
     $discoPredeterminado = $controller->obtenerDiscoPredeterminado();
+    $discoActivoObj = collect($discos)->firstWhere('disco', $discoPredeterminado) ?? ($discos[0] ?? null);
 
-    return view('welcome', compact('discos', 'discoPredeterminado'));
+    return view('welcome', compact('discos', 'discoPredeterminado', 'discoActivoObj'));
 });
 
 Route::prefix('documentos')->group(function () {
@@ -20,11 +21,13 @@ Route::prefix('documentos')->group(function () {
     Route::get('/descargar-zip/{fecha}/{paciente}', [DocumentoController::class, 'descargarZip'])->name('documentos.descargar-zip');
     Route::get('/descargar-plantilla/{tipo}', [DocumentoController::class, 'descargarPlantilla'])->name('documentos.descargar-plantilla');
     Route::get('/drive-status', [DocumentoController::class, 'driveStatus'])->name('documentos.drive-status');
+    Route::post('/extraer-texto-paciente', [DocumentoController::class, 'extraerTextoPaciente'])->name('documentos.extraer-texto-paciente');
 });
 
 Route::prefix('material-docente')->group(function () {
     Route::get('/powerpoint', [MaterialDocenteController::class, 'listar'])->name('material.powerpoint.listar');
     Route::post('/powerpoint/subir', [MaterialDocenteController::class, 'subir'])->name('material.powerpoint.subir');
+    Route::post('/powerpoint/crear-tema', [MaterialDocenteController::class, 'crearTema'])->name('material.powerpoint.crear-tema');
     Route::post('/powerpoint/abrir', [MaterialDocenteController::class, 'abrir'])->name('material.powerpoint.abrir');
     Route::post('/powerpoint/abrir-carpeta', [MaterialDocenteController::class, 'abrirCarpeta'])->name('material.powerpoint.abrir-carpeta');
     Route::get('/powerpoint/descargar/{tema}/{archivo}', [MaterialDocenteController::class, 'descargar'])->name('material.powerpoint.descargar');
