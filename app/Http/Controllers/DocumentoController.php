@@ -288,33 +288,24 @@ class DocumentoController extends Controller
         $archivosGenerados = [];
         $plantillasFaltantes = [];
 
-        // Clonar plantillas desde la carpeta PLANTILLAS de Google Drive si está disponible
-        $carpetaPlantillasDrive = "{$rutaBase}/PLANTILLAS";
+        // Clonar las 3 plantillas oficiales maestras (prioridad Google Drive compartido, respaldo local)
+        foreach ($this->plantillas as $tipo => $info) {
+            $nombreOficial = $info['archivo'];
+            $rutaDestinoArchivo = "{$carpetaDestino}/{$nombreOficial}";
 
-        if (File::isDirectory($carpetaPlantillasDrive)) {
-            $archivosPlantilla = File::files($carpetaPlantillasDrive);
-            foreach ($archivosPlantilla as $file) {
-                $nombreArchivo = $file->getFilename();
+            // 1. Buscar primero en la carpeta compartida de Google Drive
+            $rutaOrigen = $this->encontrarPlantillaDrive($tipo, $letraDisco);
 
-                // Ignorar archivos ocultos o de sistema (desktop.ini, temporales ~$)
-                if (str_starts_with($nombreArchivo, '.') || str_starts_with($nombreArchivo, '~') || strcasecmp($nombreArchivo, 'desktop.ini') === 0) {
-                    continue;
+            // 2. Si no se encuentra en Drive, recurrir a la plantilla local en Plantillas/
+            if (! $rutaOrigen || ! File::exists($rutaOrigen)) {
+                $rutaLocal = base_path('Plantillas/'.$info['archivo']);
+                if (File::exists($rutaLocal)) {
+                    $rutaOrigen = $rutaLocal;
                 }
+            }
 
-                // Normalizar nombres a los oficiales para garantizar consistencia médica
-                $nombreOficial = $nombreArchivo;
-                $lower = mb_strtolower($nombreArchivo);
-                if (str_contains($lower, 'historia') || str_contains($lower, 'clinica')) {
-                    $nombreOficial = 'Historia_Clinica.docx';
-                } elseif (str_contains($lower, 'indicacion') || str_contains($lower, 'indicaciones') || str_contains($lower, 'inducacion')) {
-                    $nombreOficial = 'Indicaciones.docx';
-                } elseif (str_contains($lower, 'admision') || str_contains($lower, 'arixa') || str_contains($lower, 'adm')) {
-                    $nombreOficial = 'Admision.docx';
-                }
-
-                $rutaDestinoArchivo = "{$carpetaDestino}/{$nombreOficial}";
-
-                copy($file->getRealPath(), $rutaDestinoArchivo);
+            if ($rutaOrigen && File::exists($rutaOrigen)) {
+                copy($rutaOrigen, $rutaDestinoArchivo);
 
                 $bytes = filesize($rutaDestinoArchivo);
                 $tamano = $bytes >= 1048576
@@ -323,8 +314,8 @@ class DocumentoController extends Controller
 
                 $nombreLimpio = pathinfo($nombreOficial, PATHINFO_FILENAME);
                 $archivosGenerados[] = [
-                    'tipo' => Str::slug($nombreLimpio),
-                    'titulo' => str_replace('_', ' ', $nombreLimpio),
+                    'tipo' => $tipo,
+                    'titulo' => $info['titulo'],
                     'nombre' => $nombreOficial,
                     'tamano' => $tamano,
                     'url' => route('documentos.descargar-archivo', [
@@ -334,40 +325,8 @@ class DocumentoController extends Controller
                         'disco' => $letraDisco,
                     ], false),
                 ];
-            }
-        }
-
-        // Si no se encontraron plantillas en Drive, usar las plantillas locales por defecto
-        if (empty($archivosGenerados)) {
-            foreach ($this->plantillas as $key => $info) {
-                $rutaOrigen = base_path('Plantillas/'.$info['archivo']);
-
-                if (File::exists($rutaOrigen)) {
-                    $nombreArchivo = $info['archivo'];
-                    $rutaDestinoArchivo = "{$carpetaDestino}/{$nombreArchivo}";
-
-                    copy($rutaOrigen, $rutaDestinoArchivo);
-
-                    $bytes = filesize($rutaDestinoArchivo);
-                    $tamano = $bytes >= 1048576
-                        ? number_format($bytes / 1048576, 2).' MB'
-                        : number_format($bytes / 1024, 0).' KB';
-
-                    $archivosGenerados[] = [
-                        'tipo' => $key,
-                        'titulo' => $info['titulo'],
-                        'nombre' => $nombreArchivo,
-                        'tamano' => $tamano,
-                        'url' => route('documentos.descargar-archivo', [
-                            'fecha' => $fechaHoy,
-                            'paciente' => $pacienteDir,
-                            'archivo' => $nombreArchivo,
-                            'disco' => $letraDisco,
-                        ], false),
-                    ];
-                } else {
-                    $plantillasFaltantes[] = $info['archivo'];
-                }
+            } else {
+                $plantillasFaltantes[] = $info['archivo'];
             }
         }
 
@@ -627,7 +586,11 @@ class DocumentoController extends Controller
             abort(404, 'Fecha de paciente no válida.');
         }
 
+        $rutaDirecta = trim((string) $request->input('ruta_carpeta', $request->input('ruta', '')));
         $candidatos = [];
+        if (! empty($rutaDirecta) && File::exists($rutaDirecta)) {
+            $candidatos[] = $rutaDirecta;
+        }
         if ($disco) {
             $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}";
         }
@@ -679,23 +642,336 @@ class DocumentoController extends Controller
     }
 
     /**
-     * Download a blank template directly from Plantillas/ folder.
+     * Obtiene el mapeo de nombres de archivos de plantillas maestras guardado.
+     *
+     * @return array<string, string>
      */
-    public function descargarPlantilla(string $tipo): BinaryFileResponse
+    protected function obtenerMapeoPlantillas(): array
+    {
+        $ruta = storage_path('app/plantillas_mapping.json');
+        if (File::exists($ruta)) {
+            $json = json_decode(File::get($ruta), true);
+            if (is_array($json)) {
+                return $json;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Guarda el nombre del archivo asignado a una plantilla maestra.
+     */
+    protected function guardarMapeoPlantilla(string $tipo, string $nombreArchivo): void
+    {
+        $ruta = storage_path('app/plantillas_mapping.json');
+        $mapping = $this->obtenerMapeoPlantillas();
+        $mapping[$tipo] = $nombreArchivo;
+        File::ensureDirectoryExists(dirname($ruta), 0755, true);
+        File::put($ruta, json_encode($mapping, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Encuentra la ruta absoluta del archivo de plantilla en Google Drive (o disco configurado) según el tipo.
+     */
+    public function encontrarPlantillaDrive(string $tipo, ?string $disco = null): ?string
+    {
+        $rutaBase = $this->getRutaBasePediatria($disco);
+        $carpetaDrive = "{$rutaBase}/PLANTILLAS";
+
+        if (! File::isDirectory($carpetaDrive)) {
+            return null;
+        }
+
+        // 1. Prioridad: Verificar si hay un archivo mapeado y guardado previamente
+        $mapping = $this->obtenerMapeoPlantillas();
+        if (! empty($mapping[$tipo])) {
+            $rutaMapeada = "{$carpetaDrive}/{$mapping[$tipo]}";
+            if (File::exists($rutaMapeada)) {
+                return realpath($rutaMapeada) ?: $rutaMapeada;
+            }
+        }
+
+        // 2. Buscar por patrones de nombres de archivo
+        $archivos = File::files($carpetaDrive);
+
+        foreach ($archivos as $file) {
+            $nombre = $file->getFilename();
+            if (str_starts_with($nombre, '.') || str_starts_with($nombre, '~') || strcasecmp($nombre, 'desktop.ini') === 0) {
+                continue;
+            }
+
+            $lower = mb_strtolower($nombre);
+
+            if ($tipo === 'historia-clinica') {
+                if (str_contains($lower, 'historia') || str_contains($lower, 'clinica') || str_contains($lower, 'zoe') || $lower === 'historia_clinica.docx') {
+                    return $file->getRealPath();
+                }
+            } elseif ($tipo === 'indicaciones') {
+                if (str_contains($lower, 'indicacion') || str_contains($lower, 'indicaciones') || str_contains($lower, 'inducacion') || $lower === 'indicaciones.docx') {
+                    return $file->getRealPath();
+                }
+            } elseif ($tipo === 'admision') {
+                if (str_contains($lower, 'admision') || str_contains($lower, 'admisión') || str_contains($lower, 'arixa') || str_contains($lower, 'adm') || str_contains($lower, 'nota_admision') || $lower === 'admision.docx') {
+                    return $file->getRealPath();
+                }
+            }
+        }
+
+        // 3. Si no coincide por nombre especial, buscar con el nombre oficial estándar
+        if (isset($this->plantillas[$tipo])) {
+            $rutaOficial = "{$carpetaDrive}/{$this->plantillas[$tipo]['archivo']}";
+            if (File::exists($rutaOficial)) {
+                return realpath($rutaOficial) ?: $rutaOficial;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Devuelve el estado y detalle de cada una de las 3 plantillas maestras oficiales.
+     *
+     * @return array<string, array{tipo: string, titulo: string, descripcion: string, archivo_oficial: string, archivo_real: string, origen: string, ruta: string, fecha_mod: string, existe: bool}>
+     */
+    public function obtenerEstadoPlantillas(?string $disco = null): array
+    {
+        $resultado = [];
+        $discoLetra = $disco ? strtoupper(trim($disco, ':\\/ ')) : $this->obtenerDiscoPredeterminado();
+
+        foreach ($this->plantillas as $tipo => $info) {
+            $rutaDrive = $this->encontrarPlantillaDrive($tipo, $discoLetra);
+            $rutaLocal = base_path('Plantillas/'.$info['archivo']);
+
+            $rutaFinal = null;
+            $origen = 'No encontrada';
+            $nombreReal = $info['archivo'];
+            $fechaMod = null;
+            $existe = false;
+
+            if ($rutaDrive && File::exists($rutaDrive)) {
+                $rutaFinal = $rutaDrive;
+                $nombreReal = basename($rutaDrive);
+                $origen = 'Google Drive (Compartido)';
+                $fechaMod = date('d/m/Y H:i', filemtime($rutaDrive));
+                $existe = true;
+            } elseif (File::exists($rutaLocal)) {
+                $rutaFinal = $rutaLocal;
+                $mapping = $this->obtenerMapeoPlantillas();
+                $nombreReal = ! empty($mapping[$tipo]) ? $mapping[$tipo] : $info['archivo'];
+                $origen = 'Local (Plantillas/)';
+                $fechaMod = date('d/m/Y H:i', filemtime($rutaLocal));
+                $existe = true;
+            }
+
+            $resultado[$tipo] = [
+                'tipo' => $tipo,
+                'titulo' => $info['titulo'],
+                'descripcion' => $info['descripcion'],
+                'archivo_oficial' => $info['archivo'],
+                'archivo_real' => $nombreReal,
+                'origen' => $origen,
+                'ruta' => $rutaFinal ? str_replace('/', '\\', realpath($rutaFinal) ?: $rutaFinal) : '',
+                'fecha_mod' => $fechaMod ?: 'Sin fecha',
+                'existe' => $existe,
+            ];
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Endpoint JSON para consultar el estado actual de las plantillas maestras.
+     */
+    public function estadoPlantillasJson(Request $request): JsonResponse
+    {
+        $disco = (string) $request->input('disco', $this->obtenerDiscoPredeterminado());
+
+        return response()->json([
+            'success' => true,
+            'plantillas' => $this->obtenerEstadoPlantillas($disco),
+        ]);
+    }
+
+    /**
+     * Download a blank template directly from Google Drive or Plantillas/ folder.
+     */
+    public function descargarPlantilla(Request $request, string $tipo): BinaryFileResponse
     {
         if (! isset($this->plantillas[$tipo])) {
             abort(404, 'Tipo de plantilla no válido.');
         }
 
         $info = $this->plantillas[$tipo];
-        $ruta = base_path('Plantillas/'.$info['archivo']);
+        $disco = (string) $request->input('disco', $this->obtenerDiscoPredeterminado());
 
-        if (! File::exists($ruta)) {
-            abort(404, "La plantilla '{$info['archivo']}' no se encuentra en la carpeta Plantillas.");
+        $rutaDescarga = $this->encontrarPlantillaDrive($tipo, $disco);
+
+        if (! $rutaDescarga || ! File::exists($rutaDescarga)) {
+            $rutaDescarga = base_path('Plantillas/'.$info['archivo']);
         }
 
-        return response()->download($ruta, $info['archivo'], [
+        if (! File::exists($rutaDescarga)) {
+            abort(404, "La plantilla '{$info['archivo']}' no se encuentra en el servidor ni en Google Drive.");
+        }
+
+        $nombreDescarga = basename($rutaDescarga);
+
+        return response()->download($rutaDescarga, $nombreDescarga, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ]);
+    }
+
+    /**
+     * Abre la plantilla maestra directamente en Microsoft Word para su edición.
+     */
+    public function abrirPlantilla(Request $request): JsonResponse
+    {
+        $tipo = (string) $request->input('tipo', '');
+        if (! isset($this->plantillas[$tipo])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tipo de plantilla no válido.',
+            ], 422);
+        }
+
+        $info = $this->plantillas[$tipo];
+        $disco = (string) $request->input('disco', $this->obtenerDiscoPredeterminado());
+
+        // 1. Prioridad: Buscar en la carpeta compartida de Google Drive
+        $rutaAbrir = $this->encontrarPlantillaDrive($tipo, $disco);
+
+        // 2. Fallback: Buscar en la carpeta local Plantillas/
+        if (! $rutaAbrir || ! File::exists($rutaAbrir)) {
+            $rutaLocal = base_path('Plantillas/'.$info['archivo']);
+            if (File::exists($rutaLocal)) {
+                $rutaAbrir = $rutaLocal;
+            }
+        }
+
+        if (! $rutaAbrir || ! File::exists($rutaAbrir)) {
+            return response()->json([
+                'success' => false,
+                'message' => "La plantilla '{$info['archivo']}' no se encuentra en Google Drive ni en la carpeta local.",
+            ], 404);
+        }
+
+        $rutaReal = str_replace('/', '\\', realpath($rutaAbrir) ?: $rutaAbrir);
+        $nombreReal = basename($rutaReal);
+        $esDrive = str_contains($rutaReal, 'PLANTILLAS') || $this->esGoogleDrive($disco);
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            try {
+                pclose(popen("cmd.exe /c start \"\" \"{$rutaReal}\"", 'r'));
+
+                $origenTexto = $esDrive ? "Google Drive ({$nombreReal})" : "Local ({$nombreReal})";
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "✓ Plantilla '{$info['titulo']}' abierta en Word desde {$origenTexto}. Modifica el documento y presiona Ctrl+S para guardar los cambios.",
+                    'ruta' => $rutaReal,
+                    'archivo' => $nombreReal,
+                    'origen' => $origenTexto,
+                ]);
+            } catch (\Throwable $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al ejecutar Word: '.$e->getMessage(),
+                ], 500);
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Apertura directa solo disponible en entorno local de Windows.',
+        ], 400);
+    }
+
+    /**
+     * Reemplaza una plantilla maestra subiendo un nuevo archivo .docx.
+     */
+    public function subirPlantilla(Request $request): JsonResponse
+    {
+        $tipo = (string) $request->input('tipo', '');
+        if (! isset($this->plantillas[$tipo])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tipo de plantilla no válido.',
+            ], 422);
+        }
+
+        $request->validate([
+            'archivo' => 'required|file|max:20480',
+        ]);
+
+        $file = $request->file('archivo');
+        $ext = strtolower($file->getClientOriginalExtension());
+        if ($ext !== 'docx') {
+            return response()->json([
+                'success' => false,
+                'message' => 'El archivo debe ser un documento Word (.docx).',
+            ], 422);
+        }
+
+        $info = $this->plantillas[$tipo];
+        $disco = (string) $request->input('disco', $this->obtenerDiscoPredeterminado());
+        $nombreArchivoNuevo = basename($file->getClientOriginalName());
+
+        // 1. Guardar copia de respaldo en carpeta local Plantillas/
+        $carpetaLocal = base_path('Plantillas');
+        File::ensureDirectoryExists($carpetaLocal, 0755, true);
+        $rutaLocal = "{$carpetaLocal}/{$info['archivo']}";
+        File::copy($file->getRealPath(), $rutaLocal);
+        $this->guardarMapeoPlantilla($tipo, $nombreArchivoNuevo);
+
+        $actualizadoEnDrive = false;
+        $archivoDriveNombre = $nombreArchivoNuevo;
+
+        // 2. Actualizar en la unidad de Google Drive Desktop
+        $rutaBase = $this->getRutaBasePediatria($disco);
+        $carpetaDrive = "{$rutaBase}/PLANTILLAS";
+
+        if (File::isDirectory($carpetaDrive)) {
+            $archivoDriveExistente = $this->encontrarPlantillaDrive($tipo, $disco);
+            $rutaNuevoDrive = "{$carpetaDrive}/{$nombreArchivoNuevo}";
+
+            if ($archivoDriveExistente && File::exists($archivoDriveExistente)) {
+                // Si el nombre anterior era diferente, eliminar el archivo antiguo para renombrarlo limpiamente
+                if (strcasecmp(basename($archivoDriveExistente), $nombreArchivoNuevo) !== 0) {
+                    File::copy($file->getRealPath(), $rutaNuevoDrive);
+                    @touch($rutaNuevoDrive);
+                    @File::delete($archivoDriveExistente);
+                } else {
+                    File::copy($file->getRealPath(), $archivoDriveExistente);
+                    @touch($archivoDriveExistente);
+                }
+            } else {
+                File::copy($file->getRealPath(), $rutaNuevoDrive);
+                @touch($rutaNuevoDrive);
+            }
+
+            $this->guardarMapeoPlantilla($tipo, $nombreArchivoNuevo);
+            $actualizadoEnDrive = true;
+        }
+
+        // 3. Sincronizar y renombrar también en Google Drive API si está configurada
+        try {
+            if ($this->googleDrive->isConfigured()) {
+                $this->googleDrive->updateTemplateFile($tipo, $file->getRealPath(), $nombreArchivoNuevo);
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Error sincronizando plantilla {$tipo} con Google Drive API: ".$e->getMessage());
+        }
+
+        $mensaje = $actualizadoEnDrive
+            ? "✓ Plantilla '{$info['titulo']}' actualizada y renombrada a '{$nombreArchivoNuevo}' en Google Drive. A partir de ahora, todo nuevo paciente usará este formato."
+            : "✓ Plantilla '{$info['titulo']}' actualizada con éxito localmente.";
+
+        return response()->json([
+            'success' => true,
+            'message' => $mensaje,
+            'archivo' => $nombreArchivoNuevo,
+            'estado' => $this->obtenerEstadoPlantillas($disco),
         ]);
     }
 
@@ -780,37 +1056,97 @@ class DocumentoController extends Controller
         }
 
         $rutaReal = null;
+        $carpetaPaciente = null;
 
         // 1. Si viene la ruta absoluta directa de la carpeta
-        if (! empty($rutaDirecta)) {
+        if (! empty($rutaDirecta) && File::isDirectory($rutaDirecta)) {
+            $carpetaPaciente = $rutaDirecta;
             $archivoDirecto = "{$rutaDirecta}/{$archivoSeguro}";
             if (File::exists($archivoDirecto)) {
                 $rutaReal = str_replace('/', '\\', realpath($archivoDirecto) ?: $archivoDirecto);
             }
         }
 
-        // 2. Si no, buscar en todos los candidatos posibles
-        if (! $rutaReal && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura)) {
+        // 2. Si no, buscar la carpeta del paciente en todos los candidatos posibles
+        if (! $carpetaPaciente && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura)) {
             $candidatos = [];
             if (! empty($disco)) {
-                $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-                $candidatos[] = "{$disco}:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-                $candidatos[] = "{$disco}:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-                $candidatos[] = "{$disco}:/My Drive/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
+                $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}";
+                $candidatos[] = "{$disco}:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+                $candidatos[] = "{$disco}:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
+                $candidatos[] = "{$disco}:/My Drive/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
             }
-            $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-            $candidatos[] = "G:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-            $candidatos[] = "G:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-            $candidatos[] = "H:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-            $candidatos[] = "H:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-            $candidatos[] = "D:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-            $candidatos[] = "C:/Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}";
-            $candidatos[] = base_path("Pediatria/{$fechaSegura}/{$pacienteSeguro}/{$archivoSeguro}");
+            $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "G:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "G:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "H:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "H:/Mi unidad/PEDIATRIA/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "D:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = "C:/Pediatria/{$fechaSegura}/{$pacienteSeguro}";
+            $candidatos[] = base_path("Pediatria/{$fechaSegura}/{$pacienteSeguro}");
 
             foreach ($candidatos as $cand) {
-                if (File::exists($cand)) {
-                    $rutaReal = str_replace('/', '\\', realpath($cand) ?: $cand);
+                if (File::isDirectory($cand)) {
+                    $carpetaPaciente = $cand;
+                    $archivoDirecto = "{$cand}/{$archivoSeguro}";
+                    if (File::exists($archivoDirecto)) {
+                        $rutaReal = str_replace('/', '\\', realpath($archivoDirecto) ?: $archivoDirecto);
+                    }
                     break;
+                }
+            }
+        }
+
+        // 3. Coincidencia inteligente: si el archivo fue guardado con otro nombre en la carpeta del paciente
+        if (! $rutaReal && $carpetaPaciente && File::isDirectory($carpetaPaciente)) {
+            $archivosCarpeta = File::files($carpetaPaciente);
+            $lowerBuscado = mb_strtolower($archivoSeguro);
+
+            foreach ($archivosCarpeta as $f) {
+                $nombreF = $f->getFilename();
+                if (str_starts_with($nombreF, '.') || str_starts_with($nombreF, '~') || strcasecmp($nombreF, 'desktop.ini') === 0) {
+                    continue;
+                }
+                $lowerF = mb_strtolower($nombreF);
+
+                if ((str_contains($lowerBuscado, 'admision') || str_contains($lowerBuscado, 'admisión')) &&
+                    (str_contains($lowerF, 'admision') || str_contains($lowerF, 'admisión') || str_contains($lowerF, 'adm') || str_contains($lowerF, 'arixa'))) {
+                    $rutaReal = str_replace('/', '\\', $f->getRealPath());
+                    break;
+                }
+
+                if ((str_contains($lowerBuscado, 'historia') || str_contains($lowerBuscado, 'clinica')) &&
+                    (str_contains($lowerF, 'historia') || str_contains($lowerF, 'clinica') || str_contains($lowerF, 'zoe'))) {
+                    $rutaReal = str_replace('/', '\\', $f->getRealPath());
+                    break;
+                }
+
+                if ((str_contains($lowerBuscado, 'indicacion') || str_contains($lowerBuscado, 'indicaciones')) &&
+                    (str_contains($lowerF, 'indicacion') || str_contains($lowerF, 'indicaciones') || str_contains($lowerF, 'inducacion'))) {
+                    $rutaReal = str_replace('/', '\\', $f->getRealPath());
+                    break;
+                }
+            }
+        }
+
+        // 4. Auto-reparación (Auto-heal): Si el archivo clínico faltaba en la carpeta del paciente, regenerarlo desde la plantilla
+        if (! $rutaReal && $carpetaPaciente && File::isDirectory($carpetaPaciente)) {
+            $tipo = null;
+            $lowerBuscado = mb_strtolower($archivoSeguro);
+            if (str_contains($lowerBuscado, 'historia') || str_contains($lowerBuscado, 'clinica')) {
+                $tipo = 'historia-clinica';
+            } elseif (str_contains($lowerBuscado, 'indicacion')) {
+                $tipo = 'indicaciones';
+            } elseif (str_contains($lowerBuscado, 'admision') || str_contains($lowerBuscado, 'admisión') || str_contains($lowerBuscado, 'adm')) {
+                $tipo = 'admision';
+            }
+
+            if ($tipo) {
+                $rutaPlantilla = $this->encontrarPlantillaDrive($tipo, $disco) ?: base_path('Plantillas/'.$this->plantillas[$tipo]['archivo']);
+                if (File::exists($rutaPlantilla)) {
+                    $archivoDestino = "{$carpetaPaciente}/{$archivoSeguro}";
+                    File::copy($rutaPlantilla, $archivoDestino);
+                    $rutaReal = str_replace('/', '\\', realpath($archivoDestino) ?: $archivoDestino);
                 }
             }
         }
@@ -849,7 +1185,11 @@ class DocumentoController extends Controller
             ], 404);
         }
 
+        $rutaDirecta = trim((string) $request->input('ruta_carpeta', $request->input('ruta', '')));
         $candidatos = [];
+        if (! empty($rutaDirecta) && File::exists($rutaDirecta)) {
+            $candidatos[] = $rutaDirecta;
+        }
         if ($disco) {
             $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}";
         }
@@ -944,7 +1284,7 @@ class DocumentoController extends Controller
             ];
 
             $seccionesTexto[] = "================================================================================\n"
-                ."DOCUMENTO: ".strtoupper($titulo)."\n"
+                .'DOCUMENTO: '.strtoupper($titulo)."\n"
                 ."ARCHIVO: {$nombreArchivo}\n"
                 ."================================================================================\n\n"
                 .($texto ?: '(Sin contenido de texto detectado)')."\n";
@@ -952,9 +1292,9 @@ class DocumentoController extends Controller
 
         $encabezado = "================================================================================\n"
             ."EXPEDIENTE CLÍNICO PEDIÁTRICO COMPLETO PARA NOTEBOOKLM\n"
-            ."PACIENTE: ".strtoupper($nombreLegible)."\n"
+            .'PACIENTE: '.strtoupper($nombreLegible)."\n"
             ."FECHA DE INGRESO: {$fechaSegura}\n"
-            ."TOTAL DE DOCUMENTOS: ".count($documentosExtraidos)."\n"
+            .'TOTAL DE DOCUMENTOS: '.count($documentosExtraidos)."\n"
             ."================================================================================\n\n";
 
         $textoCompleto = $encabezado.implode("\n\n", $seccionesTexto);
@@ -964,7 +1304,7 @@ class DocumentoController extends Controller
             ."1. Resumen de motivo de consulta, antecedentes relevantes y diagnóstico principal/diferencial.\n"
             ."2. Cronología clínica y signos vitales registrados.\n"
             ."3. Esquema terapéutico activo e indicaciones médicas (medicamento, dosis en mg/kg, vía e intervalo horario).\n"
-            ."4. Alertas farmacológicas, contraindicaciones, signos de alarma y pendientes críticos para el pase de guardia.";
+            .'4. Alertas farmacológicas, contraindicaciones, signos de alarma y pendientes críticos para el pase de guardia.';
 
         return response()->json([
             'success' => true,
@@ -994,7 +1334,7 @@ class DocumentoController extends Controller
             return '';
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($rutaDocx) !== true) {
             return '';
         }
@@ -1006,6 +1346,9 @@ class DocumentoController extends Controller
             return '';
         }
 
+        // Separar celdas y filas de tablas en Word (<w:tc>, <w:tr>)
+        $xml = preg_replace('/<\/w:tc>/', '  ', $xml);
+        $xml = preg_replace('/<\/w:tr>/', "\n", $xml);
         // Reemplazar saltos de párrafo en Word (<w:p>) por saltos de línea
         $xml = preg_replace('/<\/w:p>/', "\n", $xml);
         // Reemplazar saltos de línea en Word (<w:br/>) por saltos de línea

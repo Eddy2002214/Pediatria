@@ -174,6 +174,60 @@ class GoogleDriveService
     }
 
     /**
+     * Uploads or updates a template file in Google Drive templates folder via API.
+     */
+    public function updateTemplateFile(string $tipo, string $localFilePath, ?string $nuevoNombre = null): ?string
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        try {
+            $templates = $this->getTemplateFiles();
+            $targetFileId = null;
+
+            foreach ($templates as $t) {
+                $lower = mb_strtolower($t['name']);
+                if ($tipo === 'historia-clinica' && (str_contains($lower, 'historia') || str_contains($lower, 'clinica'))) {
+                    $targetFileId = $t['id'];
+                    break;
+                } elseif ($tipo === 'indicaciones' && (str_contains($lower, 'indicacion') || str_contains($lower, 'inducacion'))) {
+                    $targetFileId = $t['id'];
+                    break;
+                } elseif ($tipo === 'admision' && (str_contains($lower, 'admision') || str_contains($lower, 'arixa') || str_contains($lower, 'adm'))) {
+                    $targetFileId = $t['id'];
+                    break;
+                }
+            }
+
+            if (! $targetFileId) {
+                return null;
+            }
+
+            $drive = $this->getDriveService();
+            $content = file_get_contents($localFilePath);
+
+            $fileMetadata = new DriveFile;
+            if (! empty($nuevoNombre)) {
+                $fileMetadata->setName($nuevoNombre);
+            }
+
+            $updated = $drive->files->update($targetFileId, $fileMetadata, [
+                'data' => $content,
+                'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'uploadType' => 'multipart',
+                'fields' => 'id, name, modifiedTime',
+            ]);
+
+            return $updated->getId();
+        } catch (\Throwable $e) {
+            Log::warning("Error actualizando plantilla en Google Drive API ({$tipo}): ".$e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
      * Register a new patient in Google Drive:
      * 1. Finds/creates date folder (YYYY-MM-DD) inside Pediatria
      * 2. Finds/creates patient folder inside date folder

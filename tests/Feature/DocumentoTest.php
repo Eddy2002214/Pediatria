@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -105,6 +106,97 @@ class DocumentoTest extends TestCase
 
         foreach ($fechasDisponibles as $fecha) {
             $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/', $fecha);
+        }
+    }
+
+    public function test_consultar_estado_plantillas_retorna_informacion_valida(): void
+    {
+        $response = $this->getJson(route('documentos.plantillas-estado'));
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'plantillas' => [
+                'historia-clinica' => ['tipo', 'titulo', 'archivo_oficial', 'archivo_real', 'origen', 'existe'],
+                'indicaciones' => ['tipo', 'titulo', 'archivo_oficial', 'archivo_real', 'origen', 'existe'],
+                'admision' => ['tipo', 'titulo', 'archivo_oficial', 'archivo_real', 'origen', 'existe'],
+            ],
+        ]);
+        $this->assertTrue($response->json('success'));
+    }
+
+    public function test_abrir_plantilla_valida_tipo_incorrecto(): void
+    {
+        $response = $this->postJson(route('documentos.abrir-plantilla'), [
+            'tipo' => 'tipo_invalido_xyz',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertFalse($response->json('success'));
+    }
+
+    public function test_descargar_plantilla_descarga_archivo_docx(): void
+    {
+        $response = $this->get(route('documentos.descargar-plantilla', ['tipo' => 'admision']));
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+
+    public function test_subir_plantilla_renombra_archivo_correctamente(): void
+    {
+        $mappingPath = storage_path('app/plantillas_mapping.json');
+        $originalMapping = File::exists($mappingPath) ? File::get($mappingPath) : null;
+        $localTemplatePath = base_path('Plantillas/Admision.docx');
+        $originalContent = File::exists($localTemplatePath) ? File::get($localTemplatePath) : null;
+
+        try {
+            $file = UploadedFile::fake()->create('Nota_Admision_Pediatria_Optimizada_v2.docx', 100);
+
+            $response = $this->post(route('documentos.subir-plantilla'), [
+                'tipo' => 'admision',
+                'archivo' => $file,
+                'disco' => 'D',
+            ]);
+
+            $response->assertStatus(200);
+            $response->assertJson([
+                'success' => true,
+                'archivo' => 'Nota_Admision_Pediatria_Optimizada_v2.docx',
+            ]);
+
+            $estado = $response->json('estado');
+            $this->assertEquals('Nota_Admision_Pediatria_Optimizada_v2.docx', $estado['admision']['archivo_real']);
+        } finally {
+            if ($originalMapping !== null) {
+                File::put($mappingPath, $originalMapping);
+            }
+            if ($originalContent !== null) {
+                File::put($localTemplatePath, $originalContent);
+            }
+        }
+    }
+
+    public function test_abrir_archivo_con_coincidencia_inteligente_y_auto_reparacion(): void
+    {
+        $testDir = base_path('Pediatria/2026-11-10/paciente_test_autoheal');
+        File::ensureDirectoryExists($testDir, 0755, true);
+
+        try {
+            $response = $this->postJson(route('documentos.abrir-archivo'), [
+                'fecha' => '2026-11-10',
+                'paciente' => 'paciente_test_autoheal',
+                'archivo' => 'Admision.docx',
+                'ruta' => $testDir,
+            ]);
+
+            $response->assertStatus(200);
+            $response->assertJson([
+                'success' => true,
+            ]);
+            $this->assertFileExists("{$testDir}/Admision.docx");
+        } finally {
+            File::deleteDirectory(base_path('Pediatria/2026-11-10'));
         }
     }
 }
