@@ -26,6 +26,8 @@ Route::prefix('documentos')->group(function () {
     Route::get('/plantillas-estado', [DocumentoController::class, 'estadoPlantillasJson'])->name('documentos.plantillas-estado');
     Route::get('/drive-status', [DocumentoController::class, 'driveStatus'])->name('documentos.drive-status');
     Route::post('/extraer-texto-paciente', [DocumentoController::class, 'extraerTextoPaciente'])->name('documentos.extraer-texto-paciente');
+    Route::get('/diagnostico', [DocumentoController::class, 'diagnosticoPaciente'])->name('documentos.diagnostico');
+    Route::post('/asignacion', [DocumentoController::class, 'guardarAsignacion'])->name('documentos.asignacion');
 });
 
 Route::prefix('material-docente')->group(function () {

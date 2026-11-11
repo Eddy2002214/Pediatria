@@ -491,11 +491,15 @@ class DocumentoController extends Controller
                     }
 
                     $mtime = filemtime($carpetaPaciente);
+                    $tipoObservacion = $this->leerTipoObservacion($carpetaPaciente);
 
                     $pacientes[] = [
                         'nombre' => $pacienteNombreLegible,
                         'carpeta' => $pacienteNombreCarpeta,
                         'fecha' => $fecha,
+                        'tipo_observacion' => $tipoObservacion,
+                        'medico_observacion' => $this->leerTextoObservacion($carpetaPaciente, 'medico_observacion.txt', 120),
+                        'notas_observacion' => $this->leerTextoObservacion($carpetaPaciente, 'notas_observacion.txt', 2000),
                         'fecha_formateada' => date('d/m/Y', strtotime($fecha)),
                         'disco' => $discoLetra,
                         'ruta_completa' => str_replace('/', '\\', $carpetaPaciente),
@@ -1361,6 +1365,585 @@ class DocumentoController extends Controller
         $texto = preg_replace("/\n{3,}/", "\n\n", $texto);
 
         return trim($texto);
+    }
+
+    /**
+     * Lee lo más importante de la historia, las indicaciones y la admisión.
+     */
+    public function diagnosticoPaciente(Request $request): JsonResponse
+    {
+        $carpeta = $this->resolverCarpetaPaciente(
+            (string) $request->input('fecha', ''),
+            (string) $request->input('paciente', ''),
+            $request->input('disco')
+        );
+
+        if (! $carpeta) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontró la carpeta del paciente.',
+            ], 404);
+        }
+
+        $historia = $this->textoDeArchivoOficial($carpeta, 'Historia_Clinica.docx');
+        $rutaIndicaciones = $this->rutaDeArchivoOficial($carpeta, 'Indicaciones.docx');
+        $indicaciones = $rutaIndicaciones ? $this->extraerTextoDocx($rutaIndicaciones) : null;
+        $admision = $this->textoDeArchivoOficial($carpeta, 'Admision.docx');
+        $resumen = $this->armarResumenExpediente(
+            $historia,
+            $indicaciones,
+            $admision,
+            $rutaIndicaciones ? $this->filasTablaDocx($rutaIndicaciones) : []
+        );
+        $diagnostico = null;
+
+        foreach ($resumen[0]['campos'] as $campo) {
+            if ($campo['etiqueta'] === 'Diagnósticos') {
+                $diagnostico = $campo['texto'];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'diagnostico' => $diagnostico,
+            'resumen' => $resumen,
+        ]);
+    }
+
+    private function rutaDeArchivoOficial(string $carpeta, string $nombre): ?string
+    {
+        foreach (File::files($carpeta) as $archivo) {
+            if (strcasecmp($archivo->getFilename(), $nombre) === 0) {
+                return $archivo->getRealPath() ?: null;
+            }
+        }
+
+        return null;
+    }
+
+    private function textoDeArchivoOficial(string $carpeta, string $nombre): ?string
+    {
+        $ruta = $this->rutaDeArchivoOficial($carpeta, $nombre);
+
+        return $ruta ? $this->extraerTextoDocx($ruta) : null;
+    }
+
+    /**
+     * @return list<list<string>>
+     */
+    private function filasTablaDocx(string $rutaDocx): array
+    {
+        if (! file_exists($rutaDocx)) {
+            return [];
+        }
+
+        $zip = new ZipArchive;
+        if ($zip->open($rutaDocx) !== true) {
+            return [];
+        }
+
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        if (! $xml) {
+            return [];
+        }
+
+        $documento = simplexml_load_string($xml);
+        if ($documento === false) {
+            return [];
+        }
+
+        $documento->registerXPathNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+        $filas = [];
+
+        foreach ($documento->xpath('//w:tr') ?: [] as $fila) {
+            $fila->registerXPathNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+            $celdas = [];
+
+            foreach ($fila->xpath('./w:tc') ?: [] as $celda) {
+                $celda->registerXPathNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+                $partes = [];
+
+                foreach ($celda->xpath('.//w:t') ?: [] as $texto) {
+                    $partes[] = (string) $texto;
+                }
+
+                $celdas[] = trim(preg_replace('/\s+/u', ' ', implode(' ', $partes)) ?? '');
+            }
+
+            $filas[] = $celdas;
+        }
+
+        return $filas;
+    }
+
+    /**
+     * @param  list<list<string>>  $filasIndicaciones
+     * @return list<array{titulo: string, presente: bool, campos: list<array{etiqueta: string, texto: string}>}>
+     */
+    private function armarResumenExpediente(?string $historia, ?string $indicaciones, ?string $admision, array $filasIndicaciones = []): array
+    {
+        return [
+            $this->bloqueResumen('Historia clínica', $historia, [
+                'Motivo de ingreso' => $historia === null ? null : ($this->leerCampo($historia, 'Motivo de Ingreso') ?? $this->leerCampo($historia, 'Motivo de consulta')),
+                'Diagnósticos' => $historia === null ? null : $this->leerDiagnostico($historia),
+            ]),
+            $this->bloqueResumen('Indicaciones', $indicaciones, [
+                'Edad' => $indicaciones === null ? null : $this->leerCampo($indicaciones, 'Edad'),
+                'Peso' => $indicaciones === null ? null : $this->leerCampo($indicaciones, 'Peso'),
+                'Órdenes' => $indicaciones === null ? null : $this->leerOrdenesIndicaciones($indicaciones, $filasIndicaciones),
+            ]),
+            $this->bloqueResumen('Admisión', $admision, [
+                'Edad / sexo' => $admision === null ? null : ($this->leerCampo($admision, 'Edad / Sexo') ?? $this->leerCampo($admision, 'Edad')),
+                'Peso' => $admision === null ? null : $this->leerCampo($admision, 'Peso'),
+                'Motivo' => $admision === null ? null : ($this->leerCampo($admision, 'Tiempo de evolución y antecedentes previos') ?? $this->leerCampo($admision, 'Motivo de internación') ?? $this->leerCampo($admision, 'Motivo de ingreso')),
+                'Diagnósticos' => $admision === null ? null : $this->leerListaTrasTitulo($admision, 'DIAGNÓSTICOS DE INGRESO'),
+                'Dieta' => $admision === null ? null : $this->leerCampo($admision, 'Régimen Dietético'),
+            ]),
+        ];
+    }
+
+    /**
+     * @param  array<string, ?string>  $campos
+     * @return array{titulo: string, presente: bool, campos: list<array{etiqueta: string, texto: string}>}
+     */
+    private function bloqueResumen(string $titulo, ?string $texto, array $campos): array
+    {
+        $presentes = [];
+
+        foreach ($campos as $etiqueta => $valor) {
+            if (! is_string($valor) || trim($valor) === '') {
+                continue;
+            }
+
+            $presentes[] = [
+                'etiqueta' => $etiqueta,
+                'texto' => $valor,
+            ];
+        }
+
+        return [
+            'titulo' => $titulo,
+            'presente' => $texto !== null,
+            'campos' => $presentes,
+        ];
+    }
+
+    private function leerCampo(string $texto, string $etiqueta): ?string
+    {
+        $texto = preg_replace("/[ \t]+/u", ' ', $texto) ?? $texto;
+        $etiquetaPatron = preg_quote($etiqueta, '/');
+
+        if (mb_strtolower($etiqueta) === 'edad') {
+            $etiquetaPatron .= '(?!\s*\/)';
+        }
+
+        if (! preg_match('/'.$etiquetaPatron.'\s*:\s*/iu', $texto, $coincidencia, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        $resto = substr($texto, $coincidencia[0][1] + strlen($coincidencia[0][0]));
+        $valor = null;
+
+        foreach (preg_split("/\n/u", $resto) ?: [] as $indice => $linea) {
+            $linea = trim($linea);
+
+            if ($linea === '') {
+                if ($valor === null) {
+                    continue;
+                }
+
+                break;
+            }
+
+            if ($indice > 0 && $this->esApartadoResumen($linea)) {
+                break;
+            }
+
+            $linea = preg_split('/\s+(?=(?:peso|edad|fecha|paciente|servicio|kg|n[ºo°]\s*pag|hora)\s*[:\/])/iu', $linea, 2)[0] ?? $linea;
+            $linea = preg_replace('/[.\-_]{3,}/u', ' ', $linea) ?? $linea;
+            $linea = trim(preg_replace('/\s+/u', ' ', $linea) ?? $linea, " \t.:-_|/");
+
+            if ($this->lineaVaciaOPunteada($linea)) {
+                if ($valor === null) {
+                    continue;
+                }
+
+                break;
+            }
+
+            $valor = $linea;
+
+            break;
+        }
+
+        if ($valor === null) {
+            return null;
+        }
+
+        if (mb_strlen($valor) > 220) {
+            return rtrim(mb_substr($valor, 0, 217)).'…';
+        }
+
+        return $valor;
+    }
+
+    private function esApartadoResumen(string $linea): bool
+    {
+        if (preg_match('/^\d+\.\s+\p{Lu}/u', $linea)) {
+            return true;
+        }
+
+        return (bool) preg_match('/^[\p{Lu}][^:\n]{0,90}:/u', $linea);
+    }
+
+    private function lineaVaciaOPunteada(string $linea): bool
+    {
+        $limpia = trim($linea);
+
+        if ($limpia === '' || mb_strlen($limpia) < 2) {
+            return true;
+        }
+
+        return (bool) preg_match('/^[.\-_xX\s|]+$/u', $limpia);
+    }
+
+    /**
+     * @param  list<list<string>>  $filas
+     */
+    private function leerOrdenesIndicaciones(string $texto, array $filas = []): ?string
+    {
+        $desdeTabla = $this->leerOrdenesDesdeFilas($filas);
+        if ($desdeTabla !== false) {
+            return $desdeTabla;
+        }
+
+        $ignorar = [
+            'hora',
+            'indicaciones médicas',
+            'indicaciones medicas',
+            'vía',
+            'via',
+            'fecha de vencimiento',
+            'del medicamento',
+            'horario',
+            'informe a los padres',
+            'nombre paciente',
+        ];
+        $ordenes = [];
+
+        foreach (preg_split("/\n/u", $texto) ?: [] as $linea) {
+            $linea = trim(preg_replace('/[ \t]+/u', ' ', $linea) ?? $linea);
+            $linea = preg_replace('/[.\-_]{3,}.*$/u', '', $linea) ?? $linea;
+            $linea = trim($linea, " \t.:-_|");
+
+            if ($this->lineaVaciaOPunteada($linea) || preg_match('/^\d{1,2}:\d{2}$/u', $linea) || preg_match('/^R\d\b/iu', $linea)) {
+                continue;
+            }
+
+            $clave = mb_strtolower($linea);
+            $esEncabezado = false;
+
+            foreach ($ignorar as $prefijo) {
+                if ($clave === $prefijo || str_starts_with($clave, $prefijo)) {
+                    $esEncabezado = true;
+                    break;
+                }
+            }
+
+            if ($esEncabezado) {
+                continue;
+            }
+
+            $ordenes[] = mb_substr($linea, 0, 160);
+
+            if (count($ordenes) >= 12) {
+                break;
+            }
+        }
+
+        if ($ordenes === []) {
+            return null;
+        }
+
+        return implode("\n", $ordenes);
+    }
+
+    /**
+     * @param  list<list<string>>  $filas
+     */
+    private function leerOrdenesDesdeFilas(array $filas): string|false|null
+    {
+        $columnaVia = null;
+        $columnaIndicacion = null;
+        $filaEncabezado = null;
+
+        foreach ($filas as $indice => $fila) {
+            foreach ($fila as $columna => $celda) {
+                $clave = mb_strtolower($celda);
+                if ($columnaVia === null && preg_match('/\bv[ií]a\b/u', $clave)) {
+                    $columnaVia = $columna;
+                    $filaEncabezado = $indice;
+                }
+                if ($columnaIndicacion === null && str_contains($clave, 'indicacion')) {
+                    $columnaIndicacion = $columna;
+                }
+            }
+
+            if ($columnaVia !== null) {
+                break;
+            }
+        }
+
+        if ($columnaVia === null) {
+            return false;
+        }
+
+        $ordenes = [];
+
+        foreach (array_slice($filas, ($filaEncabezado ?? 0) + 1) as $fila) {
+            $via = $this->limpiarCeldaIndicacion($fila[$columnaVia] ?? '');
+            if ($via === null) {
+                continue;
+            }
+
+            $indicacion = $columnaIndicacion === null ? null : $this->limpiarCeldaIndicacion($fila[$columnaIndicacion] ?? '');
+            $ordenes[] = $indicacion === null ? $via : $indicacion.' · '.$via;
+
+            if (count($ordenes) >= 12) {
+                break;
+            }
+        }
+
+        if ($ordenes === []) {
+            return null;
+        }
+
+        return implode("\n", $ordenes);
+    }
+
+    private function limpiarCeldaIndicacion(string $celda): ?string
+    {
+        $celda = preg_replace('/[.\-_]{3,}/u', ' ', $celda) ?? $celda;
+        $celda = trim(preg_replace('/\s+/u', ' ', $celda) ?? $celda, " \t.:-_|");
+
+        if ($this->lineaVaciaOPunteada($celda) || preg_match('/^\d{1,2}:\d{2}$/u', $celda)) {
+            return null;
+        }
+
+        return mb_substr($celda, 0, 160);
+    }
+
+    private function leerListaTrasTitulo(string $texto, string $titulo): ?string
+    {
+        if (! preg_match('/'.preg_quote($titulo, '/').'(?!\s+y\b)\s*[:\-]?\s*/iu', $texto, $coincidencia, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        $resto = substr($texto, $coincidencia[0][1] + strlen($coincidencia[0][0]));
+        $partes = [];
+
+        foreach (preg_split("/\n/u", $resto) ?: [] as $linea) {
+            $linea = trim($linea);
+
+            if ($linea === '') {
+                if ($partes === []) {
+                    continue;
+                }
+
+                break;
+            }
+
+            if (preg_match('/^\d+\.\s+(plan|órdenes|ordenes|conducta|datos|motivo|examen)/iu', $linea)) {
+                break;
+            }
+
+            if (! preg_match('/^\d+\.\s*\S/u', $linea)) {
+                if ($partes === []) {
+                    continue;
+                }
+
+                break;
+            }
+
+            $partes[] = $linea;
+
+            if (count($partes) >= 8) {
+                break;
+            }
+        }
+
+        if ($partes === []) {
+            return null;
+        }
+
+        return mb_substr(implode("\n", $partes), 0, 500);
+    }
+
+    /**
+     * Guarda cómo entra el paciente a observación y las notas de esa decisión.
+     */
+    public function guardarAsignacion(Request $request): JsonResponse
+    {
+        $datos = $request->validate([
+            'fecha' => ['required', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            'paciente' => ['required', 'string', 'max:180'],
+            'disco' => ['nullable', 'string', 'max:2'],
+            'tipo' => ['required', 'in:estable,intermedio,critico'],
+            'medico' => ['nullable', 'string', 'max:120'],
+            'notas' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'fecha.required' => 'Falta la fecha del paciente.',
+            'paciente.required' => 'Falta el paciente.',
+            'tipo.required' => 'Elige si entra estable, en cuidado intermedio o crítico.',
+            'tipo.in' => 'El tipo tiene que ser estable, intermedio o crítico.',
+            'medico.max' => 'El nombre del médico es demasiado largo.',
+            'notas.max' => 'Las notas son demasiado largas.',
+        ]);
+
+        $carpeta = $this->resolverCarpetaPaciente($datos['fecha'], $datos['paciente'], $datos['disco'] ?? null);
+
+        if (! $carpeta) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontró la carpeta del paciente.',
+            ], 404);
+        }
+
+        File::put($carpeta.DIRECTORY_SEPARATOR.'tipo_observacion.txt', $datos['tipo']);
+        $this->escribirTextoObservacion($carpeta, 'medico_observacion.txt', $datos['medico'] ?? null);
+        $this->escribirTextoObservacion($carpeta, 'notas_observacion.txt', $datos['notas'] ?? null);
+
+        $mensajes = [
+            'critico' => 'El paciente entra como crítico.',
+            'intermedio' => 'El paciente entra en cuidado intermedio.',
+            'estable' => 'El paciente entra como estable.',
+        ];
+
+        return response()->json([
+            'success' => true,
+            'tipo' => $datos['tipo'],
+            'mensaje' => $mensajes[$datos['tipo']],
+        ]);
+    }
+
+    /**
+     * @return 'estable'|'intermedio'|'critico'|null
+     */
+    private function leerTipoObservacion(string $carpetaPaciente): ?string
+    {
+        $tipo = strtolower($this->leerTextoObservacion($carpetaPaciente, 'tipo_observacion.txt', 20));
+
+        return in_array($tipo, ['estable', 'intermedio', 'critico'], true) ? $tipo : null;
+    }
+
+    private function leerTextoObservacion(string $carpetaPaciente, string $archivo, int $maximo): string
+    {
+        $ruta = $carpetaPaciente.DIRECTORY_SEPARATOR.$archivo;
+        if (! is_file($ruta)) {
+            return '';
+        }
+
+        $texto = file_get_contents($ruta, false, null, 0, $maximo * 4);
+
+        return mb_substr(trim(strip_tags((string) $texto)), 0, $maximo);
+    }
+
+    private function escribirTextoObservacion(string $carpetaPaciente, string $archivo, ?string $texto): void
+    {
+        $ruta = $carpetaPaciente.DIRECTORY_SEPARATOR.$archivo;
+        $limpio = trim(strip_tags((string) $texto));
+
+        if ($limpio === '') {
+            if (is_file($ruta)) {
+                File::delete($ruta);
+            }
+
+            return;
+        }
+
+        File::put($ruta, $limpio);
+    }
+
+    private function leerDiagnostico(string $texto): ?string
+    {
+        $texto = preg_replace("/[ \t]+/u", ' ', $texto) ?? $texto;
+        if (! preg_match_all('/diagn[oó]sticos?(?:\s+[^:\n]{0,80})?\s*[:\-]\s*/iu', $texto, $coincidencias, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        foreach ($coincidencias[0] as $coincidencia) {
+            $inicio = $coincidencia[1] + strlen($coincidencia[0]);
+            $lineas = preg_split("/\n/u", substr($texto, $inicio)) ?: [];
+            $partes = [];
+
+            foreach ($lineas as $indice => $linea) {
+                $linea = trim($linea);
+                $linea = trim($linea, " \t.:-_|");
+                $linea = preg_replace('/(?<=[\p{L}\)])(?=\d+\.)/u', ' ', $linea) ?? $linea;
+                $linea = trim($linea);
+
+                if ($indice === 0) {
+                    if ($linea === '' || mb_strlen($linea) < 3 || preg_match('/^[.\-_xX\s]+$/u', $linea)) {
+                        continue 2;
+                    }
+                    $partes = $this->separarDiagnosticos($linea);
+
+                    continue;
+                }
+
+                if (preg_match('/^\d+\.\s*\S/u', $linea)) {
+                    $partes[] = $linea;
+
+                    continue;
+                }
+
+                break;
+            }
+
+            if ($partes !== []) {
+                return mb_substr(implode("\n", $partes), 0, 500);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function separarDiagnosticos(string $linea): array
+    {
+        $trozos = preg_split('/\s+(?=\d+\.)/u', $linea) ?: [$linea];
+
+        return array_values(array_filter(
+            array_map(trim(...), $trozos),
+            fn (string $trozo): bool => $trozo !== ''
+        ));
+    }
+
+    private function resolverCarpetaPaciente(string $fecha, string $paciente, ?string $disco): ?string
+    {
+        $fechaSegura = basename($fecha);
+        $pacienteSeguro = basename(str_replace('\\', '/', $paciente));
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSegura) || $pacienteSeguro === '' || str_contains($pacienteSeguro, '..')) {
+            return null;
+        }
+
+        $candidatos = [];
+        if ($disco) {
+            $candidatos[] = $this->getRutaBasePediatria($disco)."/{$fechaSegura}/{$pacienteSeguro}";
+        }
+        $candidatos[] = $this->getRutaBasePediatria()."/{$fechaSegura}/{$pacienteSeguro}";
+
+        foreach ($candidatos as $candidato) {
+            if (File::isDirectory($candidato)) {
+                return realpath($candidato) ?: $candidato;
+            }
+        }
+
+        return null;
     }
 
     /**

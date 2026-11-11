@@ -229,6 +229,12 @@
                     <i data-lucide="settings-2" class="size-4 text-[#83a9b7] shrink-0"></i>
                     <span class="truncate sidebar-text-hide">Plantillas y config.</span>
                 </button>
+
+                <!-- 6. Observaciones -->
+                <button type="button" onclick="goModule('asignacion')" id="nav-asignacion" class="nav-item sidebar-item-btn flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition text-[#a9c7d1] hover:bg-white/7 hover:text-white cursor-pointer" title="Asignación">
+                    <i data-lucide="clipboard-check" class="size-4 text-[#83a9b7] shrink-0"></i>
+                    <span class="truncate sidebar-text-hide">Asignación</span>
+                </button>
             </nav>
 
             <!-- Bloque Inferior: Estado del Sistema y Perfil -->
@@ -1255,6 +1261,128 @@
                         </div>
                     </div>
 
+                    <!-- ==================================================== -->
+                    <!-- VISTA 6: ASIGNACIÓN                                  -->
+                    <!-- ==================================================== -->
+                    <div id="module-asignacion" class="module-view hidden flex flex-col gap-4">
+                        <section class="relative overflow-hidden rounded-xl border border-[#173852] bg-[#0c2333] p-5 text-white shadow-sm">
+                            <div class="pointer-events-none absolute right-4 top-1/2 hidden h-20 w-96 -translate-y-1/2 text-teal-400 opacity-20 lg:block">
+                                <svg class="h-full w-full" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewBox="0 0 500 100"><polyline points="0,50 150,50 170,50 180,20 190,80 200,30 210,65 220,50 240,50 350,50 365,10 380,95 395,35 410,50 500,50"></polyline></svg>
+                            </div>
+                            <div class="relative z-10 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                                <div class="max-w-3xl space-y-1.5">
+                                    <div class="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-teal-300">Entrada a observación · Admisión clínica</div>
+                                    <h1 class="text-2xl font-bold tracking-tight text-white">Asignación de observación</h1>
+                                    <p class="text-xs leading-relaxed text-slate-300">Busca al paciente por nombre o por fecha. Al elegirlo ves lo escrito en la historia, las indicaciones y la admisión, y marcas si entra estable, en cuidado intermedio o crítico.</p>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-3">
+                                    <div class="rounded-lg border border-amber-500/30 bg-[#123147]/90 px-3.5 py-2.5 text-center">
+                                        <p class="text-[10px] font-semibold uppercase text-slate-300">Sin clasificar</p>
+                                        <p class="text-lg font-bold text-amber-400"><span id="asig-m-espera">0</span> <span class="text-xs font-normal text-slate-400">pacientes</span></p>
+                                    </div>
+                                    <div class="rounded-lg border border-teal-500/20 bg-[#123147]/90 px-3.5 py-2.5 text-center">
+                                        <p class="text-[10px] font-semibold uppercase text-slate-300">Estables</p>
+                                        <p class="text-lg font-bold text-teal-300"><span id="asig-m-estables">0</span></p>
+                                    </div>
+                                    <div class="rounded-lg border border-rose-500/30 bg-[#123147]/90 px-3.5 py-2.5 text-center">
+                                        <p class="text-[10px] font-semibold uppercase text-slate-300">Críticos</p>
+                                        <p class="text-lg font-bold text-rose-300"><span id="asig-m-criticos">0</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                            <div class="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
+                                <div class="md:col-span-7">
+                                    <label for="asig-buscar" class="mb-1 block text-xs font-semibold text-slate-700">Nombre del paciente</label>
+                                    <input id="asig-buscar" type="search" oninput="asigFiltrar()" placeholder="Escribe el nombre" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-teal-500">
+                                </div>
+                                <div class="flex flex-wrap items-end gap-2 md:col-span-5">
+                                    <div class="min-w-[9.5rem] flex-1">
+                                        <label for="asig-fecha" class="mb-1 block text-xs font-semibold text-slate-700">Fecha</label>
+                                        <input id="asig-fecha" type="date" onchange="asigFiltrar()" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-teal-500">
+                                    </div>
+                                    <button type="button" onclick="asigHoy()" class="shrink-0 cursor-pointer whitespace-nowrap rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-[#123b5d] shadow-sm transition hover:border-[#248294] hover:bg-[#e8f5f6] hover:text-[#248294]">Hoy</button>
+                                    <button type="button" onclick="asigLimpiarFiltros()" class="whitespace-nowrap rounded-lg border border-slate-300 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">Ver todos</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 overflow-x-auto border-t border-slate-100 pt-2 text-xs">
+                                <span class="mr-1 text-[11px] font-medium text-slate-400">Filtrar por:</span>
+                                <button type="button" id="asig-chip-todos" onclick="asigChip('todos')" class="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white">Todos</button>
+                                <button type="button" id="asig-chip-pendiente" onclick="asigChip('pendiente')" class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">Sin clasificar</button>
+                                <button type="button" id="asig-chip-critico" onclick="asigChip('critico')" class="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700">Críticos</button>
+                                <button type="button" id="asig-chip-intermedio" onclick="asigChip('intermedio')" class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">Cuidado intermedio</button>
+                                <button type="button" id="asig-chip-estable" onclick="asigChip('estable')" class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">Estables</button>
+                            </div>
+                        </section>
+
+                        <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+                            <section class="space-y-2.5 lg:col-span-5">
+                                <div class="flex items-center justify-between px-1">
+                                    <h2 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">Pacientes <span id="asig-total" class="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-800">0</span></h2>
+                                </div>
+                                <div id="asig-lista" class="flex max-h-[640px] flex-col gap-2.5 overflow-y-auto pr-1"></div>
+                            </section>
+                            <section class="lg:col-span-7">
+                                <article id="asig-vacio" class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">Elige un paciente de la lista para ver su diagnóstico, sus tres archivos y clasificar cómo entra.</article>
+                                <article id="asig-detalle" class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                                    <div class="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5">
+                                        <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                                            <div class="flex items-center gap-3.5">
+                                                <div id="asig-iniciales" class="flex h-12 w-12 items-center justify-center rounded-xl bg-[#248294] text-lg font-extrabold text-white shadow-sm ring-2 ring-[#248294]/20">--</div>
+                                                <div>
+                                                    <h2 id="asig-nombre" class="text-xl font-bold leading-tight text-slate-900"></h2>
+                                                    <p id="asig-meta" class="mt-0.5 text-xs text-slate-500"></p>
+                                                </div>
+                                            </div>
+                                            <span id="asig-tipo-actual" class="inline-block rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">Pendiente de clasificación</span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-5 p-5">
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between">
+                                                <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Archivos del paciente</h3>
+                                                <span class="text-[11px] text-slate-400">El cuadro azul es el que estás leyendo</span>
+                                            </div>
+                                            <div id="asig-archivos" class="grid grid-cols-1 gap-2.5 sm:grid-cols-3"></div>
+                                        </div>
+                                        <div id="asig-resumen" class="space-y-3">
+                                            <p class="text-sm font-semibold text-slate-500">Elige historia clínica, indicaciones o admisión.</p>
+                                        </div>
+                                        <div class="space-y-4 border-t border-slate-200 pt-4">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">Clasificación de ingreso a observación</h3>
+                                                <span class="rounded border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">Decisión clínica</span>
+                                            </div>
+                                            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                <button type="button" id="asig-btn-estable" onclick="asigElegirTipo('estable')" class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left hover:border-emerald-400 hover:bg-emerald-50/40">
+                                                    <span class="inline-flex w-fit items-center rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">Estable</span>
+                                                    <span class="text-[11px] leading-snug text-slate-500">Bajo riesgo. Control periódico.</span>
+                                                </button>
+                                                <button type="button" id="asig-btn-intermedio" onclick="asigElegirTipo('intermedio')" class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left hover:border-amber-400 hover:bg-amber-50/40">
+                                                    <span class="inline-flex w-fit items-center rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">Cuidado intermedio</span>
+                                                    <span class="text-[11px] leading-snug text-slate-500">Monitoreo frecuente y reevaluación.</span>
+                                                </button>
+                                                <button type="button" id="asig-btn-critico" onclick="asigElegirTipo('critico')" class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left hover:border-rose-400 hover:bg-rose-50/40">
+                                                    <span class="inline-flex w-fit items-center rounded-full border border-rose-300 bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">Crítico</span>
+                                                    <span class="text-[11px] leading-snug text-slate-500">Alto monitoreo o riesgo de descompensación.</span>
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label for="asig-notas" class="mb-1 block text-xs font-semibold text-slate-700">Notas clínicas iniciales de observación</label>
+                                                <textarea id="asig-notas" rows="3" maxlength="2000" placeholder="Escribe indicaciones y observaciones inmediatas..." class="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#248294] focus:ring-2 focus:ring-[#248294]/20"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end border-t border-slate-200 bg-slate-50 p-4">
+                                        <button type="button" id="asig-confirmar" onclick="asigConfirmar()" class="inline-flex items-center justify-center rounded-lg bg-[#248294] px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#1b6574]">Confirmar ingreso a observación</button>
+                                    </div>
+                                </article>
+                            </section>
+                        </div>
+                    </div>
+
                 </div>
             </main>
         </div>
@@ -1811,6 +1939,8 @@
                 cargarMaterialDocente();
             } else if (moduleName === 'templates') {
                 cargarEstadoPlantillas();
+            } else if (moduleName === 'asignacion') {
+                cargarAsignacion();
             }
 
             const titles = {
@@ -1818,7 +1948,8 @@
                 'patients': 'Pacientes y documentación',
                 'ai': 'Asistente clínico IA',
                 'teaching': 'Material docente',
-                'templates': 'Plantillas y configuración'
+                'templates': 'Plantillas y configuración',
+                'asignacion': 'Asignación de pacientes'
             };
             const breadcrumb = document.getElementById('breadcrumbModule');
             if (breadcrumb) {
@@ -1827,6 +1958,335 @@
 
             toggleSidebar(false);
             if (window.lucide) lucide.createIcons();
+        }
+
+        let asigPacientes = [];
+        let asigSeleccionado = null;
+        let asigVista = 'todos';
+        let asigTipoElegido = '';
+        let asigBloques = [];
+        let asigLectura = ['Historia clínica', 'Indicaciones', 'Admisión'];
+
+        function asigEsc(valor) {
+            return String(valor ?? '').replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function asigIniciales(nombre) {
+            const partes = String(nombre || '').trim().split(/\s+/).filter(Boolean);
+            const letras = partes.length >= 2 ? partes[0].charAt(0) + partes[1].charAt(0) : String(nombre || 'P').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2);
+            return (letras || 'P').toUpperCase();
+        }
+
+        function asigOficiales(paciente) {
+            const presentes = (paciente.archivos || []).map((archivo) => (archivo.nombre || '').toLowerCase());
+            return [
+                ['Historia_Clinica.docx', 'Historia clínica'],
+                ['Indicaciones.docx', 'Indicaciones'],
+                ['Admision.docx', 'Admisión']
+            ].map(([archivo, titulo]) => ({ archivo, titulo, existe: presentes.includes(archivo.toLowerCase()) }));
+        }
+
+        function asigEtiqueta(tipo) {
+            if (tipo === 'critico') return { texto: 'Crítico', clase: 'border-rose-200 bg-rose-50 text-rose-700' };
+            if (tipo === 'intermedio') return { texto: 'Cuidado intermedio', clase: 'border-amber-200 bg-amber-50 text-amber-800' };
+            if (tipo === 'estable') return { texto: 'Estable', clase: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+            return { texto: 'Pendiente de clasificación', clase: 'border-amber-300 bg-amber-100 text-amber-800' };
+        }
+
+        async function cargarAsignacion() {
+            const lista = document.getElementById('asig-lista');
+            if (lista) {
+                lista.innerHTML = '<p class="px-1 text-xs text-slate-400">Cargando pacientes...</p>';
+            }
+            try {
+                const respuesta = await fetch("{{ route('documentos.historial') }}?disco=" + encodeURIComponent(discoActual));
+                const datos = await respuesta.json();
+                asigPacientes = datos.pacientes || [];
+                asigFiltrar();
+            } catch (error) {
+                if (lista) {
+                    lista.innerHTML = '<p class="px-1 text-xs text-red-500">No se pudo cargar la lista de pacientes.</p>';
+                }
+            }
+        }
+
+        function asigLimpiarFiltros() {
+            const nombre = document.getElementById('asig-buscar');
+            const fecha = document.getElementById('asig-fecha');
+            if (nombre) nombre.value = '';
+            if (fecha) fecha.value = '';
+            asigVista = 'todos';
+            asigFiltrar();
+        }
+
+        function asigHoy() {
+            const nombre = document.getElementById('asig-buscar');
+            const fecha = document.getElementById('asig-fecha');
+            if (nombre) nombre.value = '';
+            if (fecha) fecha.value = getFechaLocalHoy();
+            asigVista = 'todos';
+            asigFiltrar();
+        }
+
+        function asigChip(vista) {
+            asigVista = vista;
+            asigFiltrar();
+        }
+
+        function asigBase() {
+            const consulta = (document.getElementById('asig-buscar')?.value || '').trim().toLowerCase();
+            const fecha = document.getElementById('asig-fecha')?.value || '';
+            return asigPacientes.filter((paciente) => {
+                const coincideNombre = !consulta || (paciente.nombre || '').toLowerCase().includes(consulta) || (paciente.carpeta || '').toLowerCase().includes(consulta);
+                const coincideFecha = !fecha || paciente.fecha === fecha;
+                return coincideNombre && coincideFecha;
+            });
+        }
+
+        function asigFiltrar() {
+            const base = asigBase();
+            asigPintarMetricas(asigPacientes);
+            asigPintarChips(base);
+            const visibles = base.filter((paciente) => asigVista === 'todos' || (asigVista === 'pendiente' ? !paciente.tipo_observacion : paciente.tipo_observacion === asigVista));
+            asigPintarLista(visibles);
+        }
+
+        function asigPintarMetricas(pacientes) {
+            const espera = document.getElementById('asig-m-espera');
+            const estables = document.getElementById('asig-m-estables');
+            const criticos = document.getElementById('asig-m-criticos');
+            if (!espera) return;
+            espera.textContent = pacientes.filter((paciente) => !paciente.tipo_observacion).length;
+            estables.textContent = pacientes.filter((paciente) => paciente.tipo_observacion === 'estable').length;
+            criticos.textContent = pacientes.filter((paciente) => paciente.tipo_observacion === 'critico').length;
+        }
+
+        function asigPintarChips(base) {
+            const cuentas = {
+                todos: base.length,
+                pendiente: base.filter((paciente) => !paciente.tipo_observacion).length,
+                critico: base.filter((paciente) => paciente.tipo_observacion === 'critico').length,
+                intermedio: base.filter((paciente) => paciente.tipo_observacion === 'intermedio').length,
+                estable: base.filter((paciente) => paciente.tipo_observacion === 'estable').length
+            };
+            const etiquetas = { todos: 'Todos', pendiente: 'Sin clasificar', critico: 'Críticos', intermedio: 'Cuidado intermedio', estable: 'Estables' };
+            Object.keys(etiquetas).forEach((vista) => {
+                const boton = document.getElementById('asig-chip-' + vista);
+                if (!boton) return;
+                boton.textContent = etiquetas[vista] + ' (' + cuentas[vista] + ')';
+                const activo = asigVista === vista;
+                if (vista === 'todos') {
+                    boton.className = 'rounded-full px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-100 text-slate-700');
+                } else if (vista === 'critico') {
+                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 bg-rose-50 text-rose-700');
+                } else if (vista === 'intermedio') {
+                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-amber-600 bg-amber-600 text-white' : 'border-amber-200 bg-amber-50 text-amber-800');
+                } else if (vista === 'estable') {
+                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 bg-emerald-50 text-emerald-700');
+                } else {
+                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-slate-100 text-slate-700');
+                }
+            });
+        }
+
+        function asigPintarLista(pacientes) {
+            const lista = document.getElementById('asig-lista');
+            const total = document.getElementById('asig-total');
+            if (total) total.textContent = String(pacientes.length);
+            if (!lista) return;
+            if (!pacientes.length) {
+                lista.innerHTML = '<p class="px-1 text-xs text-slate-400">No hay pacientes con ese nombre, esa fecha o ese filtro.</p>';
+                return;
+            }
+            lista.innerHTML = pacientes.map((paciente) => {
+                const real = asigPacientes.indexOf(paciente);
+                const activo = asigSeleccionado && asigSeleccionado.carpeta === paciente.carpeta && asigSeleccionado.fecha === paciente.fecha;
+                const etiqueta = asigEtiqueta(paciente.tipo_observacion);
+                const archivos = asigOficiales(paciente).filter((archivo) => archivo.existe).length;
+                const resumen = paciente.diagnostico
+                    ? paciente.diagnostico.split('\n')[0]
+                    : (archivos ? archivos + (archivos === 1 ? ' archivo en la carpeta' : ' archivos en la carpeta') : 'Todavía no hay archivos en la carpeta');
+                const borde = activo
+                    ? 'relative border-2 border-teal-500 bg-white p-4 shadow-md ring-2 ring-teal-500/10'
+                    : 'border border-slate-200 bg-white p-3.5 hover:border-slate-300 hover:shadow-sm';
+                return '<button type="button" onclick="asigElegir(' + real + ')" class="w-full rounded-xl text-left transition ' + borde + '">'
+                    + '<span class="flex items-start justify-between gap-2"><span><span class="block text-sm font-bold text-slate-900">' + asigEsc(paciente.nombre) + '</span><span class="mt-0.5 block text-[11px] text-slate-500">Ingreso: ' + asigEsc(paciente.fecha_formateada || paciente.fecha) + '</span></span>'
+                    + '<span class="shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ' + etiqueta.clase + '">' + asigEsc(etiqueta.texto) + '</span></span>'
+                    + '<span class="mt-2 block truncate text-xs text-slate-600">' + asigEsc(resumen) + '</span>'
+                    + (activo ? '<span class="mt-2 block border-t border-slate-100 pt-2 text-[11px] font-semibold text-teal-700">Seleccionado para clasificar</span>' : '')
+                    + '</button>';
+            }).join('');
+        }
+
+        async function asigElegir(indice) {
+            const paciente = asigPacientes[indice];
+            if (!paciente) return;
+            asigSeleccionado = paciente;
+            asigTipoElegido = paciente.tipo_observacion || '';
+            document.getElementById('asig-vacio').classList.add('hidden');
+            document.getElementById('asig-detalle').classList.remove('hidden');
+            document.getElementById('asig-iniciales').textContent = asigIniciales(paciente.nombre);
+            document.getElementById('asig-nombre').textContent = paciente.nombre;
+            document.getElementById('asig-meta').textContent = 'Ingreso: ' + (paciente.fecha_formateada || paciente.fecha);
+            document.getElementById('asig-notas').value = paciente.notas_observacion || '';
+            document.getElementById('asig-confirmar').textContent = 'Confirmar ingreso a observación (' + paciente.nombre + ')';
+            asigMarcarTipo(asigTipoElegido);
+            asigLectura = ['Historia clínica', 'Indicaciones', 'Admisión'];
+            asigBloques = [];
+            asigPintarArchivos(paciente);
+            asigPintarResumen([]);
+            asigFiltrar();
+            try {
+                const params = new URLSearchParams({ fecha: paciente.fecha, paciente: paciente.carpeta, disco: discoActual });
+                const respuesta = await fetch("{{ route('documentos.diagnostico') }}?" + params.toString());
+                const datos = await respuesta.json();
+                if (asigSeleccionado !== paciente) return;
+                paciente.diagnostico = datos.diagnostico || '';
+                asigPintarResumen(datos.resumen || []);
+                asigFiltrar();
+            } catch (error) {
+                document.getElementById('asig-resumen').innerHTML = '<p class="text-sm font-semibold text-slate-500">No se pudieron leer los archivos.</p>';
+            }
+        }
+
+        function asigPintarLineas(texto) {
+            const lineas = String(texto || '').split('\n').filter(Boolean);
+            if (!lineas.length) {
+                return '';
+            }
+            if (lineas.length === 1 && !/^\d+\.\s+/.test(lineas[0])) {
+                return '<p class="text-xs font-semibold text-slate-800">' + asigEsc(lineas[0]) + '</p>';
+            }
+            return '<ul class="space-y-1">' + lineas.map((linea) => {
+                const partes = linea.match(/^(\d+)\.\s+(\S.*)$/);
+                const detalle = partes ? partes[2] : linea;
+                return '<li class="text-xs font-semibold text-slate-800">' + asigEsc(detalle) + '</li>';
+            }).join('') + '</ul>';
+        }
+
+        function asigLeerArchivo(titulo) {
+            if (asigLectura.includes(titulo)) {
+                asigLectura = asigLectura.filter((item) => item !== titulo);
+            } else {
+                asigLectura = asigLectura.concat(titulo);
+            }
+            if (asigSeleccionado) asigPintarArchivos(asigSeleccionado);
+            asigPintarResumen(asigBloques);
+        }
+
+        function asigPintarResumen(bloques) {
+            if (Array.isArray(bloques)) asigBloques = bloques;
+            const caja = document.getElementById('asig-resumen');
+            const orden = ['Historia clínica', 'Indicaciones', 'Admisión'];
+            const elegidos = asigBloques.filter((item) => asigLectura.includes(item.titulo));
+            elegidos.sort((a, b) => orden.indexOf(a.titulo) - orden.indexOf(b.titulo));
+            if (!asigLectura.length) {
+                caja.innerHTML = '<p class="text-sm font-semibold text-slate-500">Marca un archivo para ver su información.</p>';
+                return;
+            }
+            if (!elegidos.length) {
+                caja.innerHTML = '<p class="text-sm font-semibold text-slate-500">Leyendo los archivos seleccionados...</p>';
+                return;
+            }
+            caja.innerHTML = '<div class="space-y-3">' + elegidos.map((bloque) => asigHtmlBloque(bloque)).join('') + '</div>';
+        }
+
+        function asigHtmlBloque(bloque) {
+            let cuerpo;
+            if (!bloque.presente) {
+                cuerpo = '<p class="text-xs text-slate-400">No está en la carpeta.</p>';
+            } else if (!bloque.campos || !bloque.campos.length) {
+                cuerpo = '<p class="text-xs text-slate-400">No está escrito en el archivo.</p>';
+            } else {
+                cuerpo = '<div class="space-y-2">' + bloque.campos.map((campo) => {
+                    return '<div><p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">' + asigEsc(campo.etiqueta) + '</p>' + asigPintarLineas(campo.texto) + '</div>';
+                }).join('') + '</div>';
+            }
+            return '<section class="space-y-2 rounded-xl border border-slate-200/90 bg-slate-50 p-4"><h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">' + asigEsc(bloque.titulo) + '</h3>' + cuerpo + '</section>';
+        }
+
+        function asigJs(valor) {
+            return String(valor ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        function asigPintarArchivos(paciente) {
+            document.getElementById('asig-archivos').innerHTML = asigOficiales(paciente).map((archivo) => {
+                if (!archivo.existe) {
+                    return '<div class="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-left opacity-70"><p class="text-xs font-bold text-slate-400">' + asigEsc(archivo.titulo) + '</p><p class="truncate text-[10px] text-slate-400">No está en la carpeta</p></div>';
+                }
+                const activo = asigLectura.includes(archivo.titulo);
+                const clase = activo
+                    ? 'rounded-lg border-2 border-[#1d4ed8] bg-[#dbeafe] p-2.5 text-left shadow-sm ring-2 ring-[#bfdbfe]'
+                    : 'rounded-lg border border-slate-200 bg-white p-2.5 text-left transition hover:border-[#1d4ed8]';
+                return '<div class="' + clase + '"><button type="button" onclick="asigLeerArchivo(\'' + asigJs(archivo.titulo) + '\')" class="w-full text-left"><p class="truncate text-xs font-bold text-slate-800">' + asigEsc(archivo.titulo) + '</p><p class="truncate text-[10px] font-semibold ' + (activo ? 'text-[#1d4ed8]' : 'text-slate-400') + '">' + (activo ? 'Seleccionado' : 'Sin seleccionar') + '</p></button><button type="button" onclick="abrirArchivoWord(\'' + asigJs(paciente.fecha) + '\', \'' + asigJs(paciente.carpeta) + '\', \'' + archivo.archivo + '\', \'' + asigJs(paciente.ruta_completa || '') + '\')" class="mt-1 text-[10px] font-semibold text-slate-400 hover:text-[#1d4ed8]">Abrir Word</button></div>';
+            }).join('');
+        }
+
+        function asigElegirTipo(tipo) {
+            if (!asigSeleccionado) return;
+            asigTipoElegido = tipo;
+            asigMarcarTipo(tipo);
+        }
+
+        function asigMarcarTipo(tipo) {
+            const estilos = {
+                estable: ['border-2 border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/10', 'border border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/40'],
+                intermedio: ['border-2 border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/10', 'border border-slate-200 bg-white hover:border-amber-400 hover:bg-amber-50/40'],
+                critico: ['border-2 border-rose-500 bg-rose-50/70 ring-2 ring-rose-500/10', 'border border-slate-200 bg-white hover:border-rose-400 hover:bg-rose-50/40']
+            };
+            ['estable', 'intermedio', 'critico'].forEach((clave) => {
+                const boton = document.getElementById('asig-btn-' + clave);
+                if (!boton) return;
+                const activo = tipo === clave;
+                boton.className = 'flex flex-col gap-2 rounded-xl p-3.5 text-left ' + (activo ? estilos[clave][0] : estilos[clave][1]);
+            });
+            const etiqueta = document.getElementById('asig-tipo-actual');
+            const marca = asigEtiqueta(tipo);
+            etiqueta.textContent = marca.texto;
+            etiqueta.className = 'inline-block rounded-full border px-3 py-1 text-xs font-bold ' + marca.clase;
+        }
+
+        function asigConfirmar() {
+            if (!asigSeleccionado) return;
+            if (!asigTipoElegido) {
+                notify('Elige si entra estable, en cuidado intermedio o crítico.');
+                return;
+            }
+            asigGuardar(asigTipoElegido);
+        }
+
+        async function asigGuardar(tipo) {
+            if (!asigSeleccionado) return;
+            const paciente = asigSeleccionado;
+            const notas = document.getElementById('asig-notas').value.trim();
+            try {
+                const respuesta = await fetch("{{ route('documentos.asignacion') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                    body: JSON.stringify({
+                        fecha: paciente.fecha,
+                        paciente: paciente.carpeta,
+                        disco: discoActual,
+                        tipo: tipo,
+                        notas: notas
+                    })
+                });
+                const datos = await respuesta.json();
+                if (!respuesta.ok || !datos.success) {
+                    const error = datos.errors ? Object.values(datos.errors)[0][0] : (datos.message || 'No se pudo guardar la asignación.');
+                    notify(error);
+                    return;
+                }
+                paciente.tipo_observacion = tipo;
+                paciente.notas_observacion = notas;
+                asigMarcarTipo(tipo);
+                asigFiltrar();
+                notify(datos.mensaje);
+            } catch (error) {
+                notify('No se pudo guardar la asignación.');
+            }
         }
 
         function toggleSidebar(open) {
@@ -1885,6 +2345,9 @@
             cargarHistorial();
             cargarSelectorPacientesIA();
             cargarEstadoPlantillas();
+            if (!document.getElementById('module-asignacion')?.classList.contains('hidden')) {
+                cargarAsignacion();
+            }
         }
 
         function seleccionarDiscoPaciente(disco, etiqueta) {
