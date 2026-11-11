@@ -106,6 +106,15 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Animación suave para badges clínicos críticos */
+        @keyframes subtle-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.03); }
+        }
+        .badge-pulse {
+            animation: subtle-pulse 2s infinite ease-in-out;
+        }
+
         /* Reglas estructurales para escritorio y laptops (>= 768px): La barra lateral NUNCA se sobrepone */
         @media (min-width: 768px) {
             #sidebar {
@@ -1264,123 +1273,478 @@
                     <!-- ==================================================== -->
                     <!-- VISTA 6: ASIGNACIÓN                                  -->
                     <!-- ==================================================== -->
-                    <div id="module-asignacion" class="module-view hidden flex flex-col gap-4">
-                        <section class="relative overflow-hidden rounded-xl border border-[#173852] bg-[#0c2333] p-5 text-white shadow-sm">
-                            <div class="pointer-events-none absolute right-4 top-1/2 hidden h-20 w-96 -translate-y-1/2 text-teal-400 opacity-20 lg:block">
-                                <svg class="h-full w-full" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewBox="0 0 500 100"><polyline points="0,50 150,50 170,50 180,20 190,80 200,30 210,65 220,50 240,50 350,50 365,10 380,95 395,35 410,50 500,50"></polyline></svg>
+                    <div id="module-asignacion" class="module-view hidden flex flex-col gap-5">
+                        
+                        <!-- BEGIN: HeroSummaryBanner -->
+                        <section class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0d2a45] via-[#10385c] to-[#0d263e] text-white p-5 sm:p-6 shadow-md border border-slate-700/50" data-purpose="hero-banner">
+                            <!-- Background subtle pulse ECG trace effect -->
+                            <div class="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 pointer-events-none flex items-center justify-end pr-8">
+                                <svg class="h-28 text-white w-full" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 500 150">
+                                    <path d="M0,75 L120,75 L135,20 L155,130 L175,40 L195,95 L215,75 L500,75"></path>
+                                </svg>
                             </div>
-                            <div class="relative z-10 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                                <div class="max-w-3xl space-y-1.5">
-                                    <div class="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-teal-300">Entrada a observación · Admisión clínica</div>
-                                    <h1 class="text-2xl font-bold tracking-tight text-white">Asignación de observación</h1>
-                                    <p class="text-xs leading-relaxed text-slate-300">Busca al paciente por nombre o por fecha. Al elegirlo ves lo escrito en la historia, las indicaciones y la admisión, y marcas si entra estable, en cuidado intermedio o crítico.</p>
+                            <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                                <div class="max-w-2xl">
+                                    <div class="flex items-center gap-2 text-teal-300 text-xs font-bold uppercase tracking-wider mb-2">
+                                        <span class="inline-block w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+                                        Entrada a Observación • Admisión Clínica Inmediata
+                                    </div>
+                                    <h2 class="text-2xl font-bold tracking-tight text-white mb-1.5">
+                                        Asignación de observación
+                                    </h2>
+                                    <p class="text-sm text-slate-300 font-normal leading-relaxed">
+                                        Busca al paciente por nombre, cama o ficha médica. Revisa su historia clínica, indicaciones y asigna su estado de observación inmediatamente.
+                                    </p>
                                 </div>
-                                <div class="flex shrink-0 items-center gap-3">
-                                    <div class="rounded-lg border border-amber-500/30 bg-[#123147]/90 px-3.5 py-2.5 text-center">
-                                        <p class="text-[10px] font-semibold uppercase text-slate-300">Sin clasificar</p>
-                                        <p class="text-lg font-bold text-amber-400"><span id="asig-m-espera">0</span> <span class="text-xs font-normal text-slate-400">pacientes</span></p>
+                                <!-- Live Status Counters Group -->
+                                <div class="flex flex-wrap sm:flex-nowrap items-center gap-3">
+                                    <!-- Sin Clasificar Card -->
+                                    <div class="flex-1 sm:flex-none min-w-[120px] bg-amber-500/15 border border-amber-400/30 rounded-xl px-4 py-2.5 backdrop-blur-sm">
+                                        <div class="text-[11px] font-semibold text-amber-200 tracking-wide uppercase">Sin Clasificar</div>
+                                        <div class="flex items-baseline gap-1.5 mt-0.5">
+                                            <span id="asig-m-espera" class="text-2xl font-extrabold text-amber-400">0</span>
+                                            <span class="text-xs text-amber-200/80 font-medium">pacientes</span>
+                                        </div>
                                     </div>
-                                    <div class="rounded-lg border border-teal-500/20 bg-[#123147]/90 px-3.5 py-2.5 text-center">
-                                        <p class="text-[10px] font-semibold uppercase text-slate-300">Estables</p>
-                                        <p class="text-lg font-bold text-teal-300"><span id="asig-m-estables">0</span></p>
+                                    <!-- Estables Card -->
+                                    <div class="flex-1 sm:flex-none min-w-[105px] bg-emerald-500/15 border border-emerald-400/30 rounded-xl px-4 py-2.5 backdrop-blur-sm">
+                                        <div class="text-[11px] font-semibold text-emerald-200 tracking-wide uppercase">Estables</div>
+                                        <div class="flex items-baseline gap-1.5 mt-0.5">
+                                            <span id="asig-m-estables" class="text-2xl font-extrabold text-emerald-400">0</span>
+                                            <span class="text-xs text-emerald-200/80 font-medium">en sala</span>
+                                        </div>
                                     </div>
-                                    <div class="rounded-lg border border-rose-500/30 bg-[#123147]/90 px-3.5 py-2.5 text-center">
-                                        <p class="text-[10px] font-semibold uppercase text-slate-300">Críticos</p>
-                                        <p class="text-lg font-bold text-rose-300"><span id="asig-m-criticos">0</span></p>
+                                    <!-- Cuidado Intermedio Card -->
+                                    <div class="flex-1 sm:flex-none min-w-[110px] bg-orange-500/15 border border-orange-400/30 rounded-xl px-4 py-2.5 backdrop-blur-sm">
+                                        <div class="text-[11px] font-semibold text-orange-200 tracking-wide uppercase">Intermedio</div>
+                                        <div class="flex items-baseline gap-1.5 mt-0.5">
+                                            <span id="asig-m-intermedios" class="text-2xl font-extrabold text-orange-400">0</span>
+                                            <span class="text-xs text-orange-200/80 font-medium">atención</span>
+                                        </div>
+                                    </div>
+                                    <!-- Críticos Card -->
+                                    <div class="flex-1 sm:flex-none min-w-[105px] bg-rose-500/20 border border-rose-400/40 rounded-xl px-4 py-2.5 backdrop-blur-sm ring-1 ring-rose-500/30">
+                                        <div class="text-[11px] font-bold text-rose-300 tracking-wide uppercase flex items-center gap-1.5">
+                                            <span>Críticos</span>
+                                            <span class="w-2 h-2 rounded-full bg-rose-400 badge-pulse"></span>
+                                        </div>
+                                        <div class="flex items-baseline gap-1.5 mt-0.5">
+                                            <span id="asig-m-criticos" class="text-2xl font-extrabold text-rose-400">0</span>
+                                            <span class="text-xs text-rose-300/80 font-medium">en UCI/Rea</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </section>
+                        <!-- END: HeroSummaryBanner -->
 
-                        <section class="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-                            <div class="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
-                                <div class="md:col-span-7">
-                                    <label for="asig-buscar" class="mb-1 block text-xs font-semibold text-slate-700">Nombre del paciente</label>
-                                    <input id="asig-buscar" type="search" oninput="asigFiltrar()" placeholder="Escribe el nombre" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-teal-500">
-                                </div>
-                                <div class="flex flex-wrap items-end gap-2 md:col-span-5">
-                                    <div class="min-w-[9.5rem] flex-1">
-                                        <label for="asig-fecha" class="mb-1 block text-xs font-semibold text-slate-700">Fecha</label>
-                                        <input id="asig-fecha" type="date" onchange="asigFiltrar()" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-teal-500">
+                        <!-- BEGIN: SearchAndFilters -->
+                        <section class="bg-white rounded-xl p-4 border border-slate-200/90 shadow-xs space-y-3" data-purpose="search-filters">
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
+                                <!-- Omnibox Search Bar -->
+                                <div class="lg:col-span-6 relative">
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1" for="asig-buscar">Nombre o identificación del paciente</label>
+                                    <div class="relative rounded-lg shadow-2xs">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                        </div>
+                                        <input class="block w-full rounded-lg border-slate-200 pl-10 pr-12 text-sm text-slate-800 placeholder-slate-400 focus:border-teal-500 focus:ring-teal-500 bg-slate-50/50 hover:bg-white transition" id="asig-buscar" oninput="asigFiltrar()" placeholder="Escribe el nombre, RUT o N° de cama..." type="text">
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <kbd class="text-[10px] font-mono text-slate-400 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">/</kbd>
+                                        </div>
                                     </div>
-                                    <button type="button" onclick="asigHoy()" class="shrink-0 cursor-pointer whitespace-nowrap rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-[#123b5d] shadow-sm transition hover:border-[#248294] hover:bg-[#e8f5f6] hover:text-[#248294]">Hoy</button>
-                                    <button type="button" onclick="asigLimpiarFiltros()" class="whitespace-nowrap rounded-lg border border-slate-300 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">Ver todos</button>
+                                </div>
+                                <!-- Date Selector -->
+                                <div class="lg:col-span-3">
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1" for="asig-fecha">Fecha de atención</label>
+                                    <div class="relative">
+                                        <input class="block w-full rounded-lg border-slate-200 text-sm text-slate-700 pr-10 focus:border-teal-500 focus:ring-teal-500" id="asig-fecha" type="date" onchange="asigFiltrar()">
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                                <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Date Quick Action Buttons -->
+                                <div class="lg:col-span-3 flex items-end gap-2 pt-5 lg:pt-0">
+                                    <button onclick="asigHoy()" class="flex-1 py-2 px-3 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200/80 transition shadow-2xs text-center cursor-pointer" type="button">
+                                        Hoy
+                                    </button>
+                                    <button onclick="asigLimpiarFiltros()" class="flex-1 py-2 px-3 text-xs font-semibold rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition shadow-2xs text-center cursor-pointer" type="button">
+                                        Ver todos
+                                    </button>
+                                    <button onclick="cargarAsignacion()" class="p-2 text-slate-500 hover:text-teal-600 rounded-lg border border-slate-200 hover:bg-slate-50 transition cursor-pointer" title="Refrescar lista" type="button">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 overflow-x-auto border-t border-slate-100 pt-2 text-xs">
-                                <span class="mr-1 text-[11px] font-medium text-slate-400">Filtrar por:</span>
-                                <button type="button" id="asig-chip-todos" onclick="asigChip('todos')" class="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white">Todos</button>
-                                <button type="button" id="asig-chip-pendiente" onclick="asigChip('pendiente')" class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">Sin clasificar</button>
-                                <button type="button" id="asig-chip-critico" onclick="asigChip('critico')" class="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700">Críticos</button>
-                                <button type="button" id="asig-chip-intermedio" onclick="asigChip('intermedio')" class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">Cuidado intermedio</button>
-                                <button type="button" id="asig-chip-estable" onclick="asigChip('estable')" class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">Estables</button>
+                            <!-- Filter Pills Bar -->
+                            <div class="flex items-center gap-2 pt-2 border-t border-slate-100 overflow-x-auto text-xs pb-1">
+                                <span class="text-slate-400 font-medium mr-1 flex-shrink-0">Filtrar por:</span>
+                                <button type="button" id="asig-chip-todos" onclick="asigChip('todos')" class="px-3 py-1.5 rounded-full font-semibold bg-slate-900 text-white shadow-2xs flex-shrink-0 flex items-center gap-1.5 cursor-pointer">
+                                    <span>Todos</span>
+                                    <span id="asig-count-todos" class="bg-slate-700 text-white rounded-full px-1.5 text-[10px]">0</span>
+                                </button>
+                                <button type="button" id="asig-chip-pendiente" onclick="asigChip('pendiente')" class="px-3 py-1.5 rounded-full font-semibold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition flex-shrink-0 flex items-center gap-1.5 cursor-pointer">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    <span>Sin clasificar</span>
+                                    <span id="asig-count-pendiente" class="bg-amber-200/80 text-amber-900 rounded-full px-1.5 text-[10px]">0</span>
+                                </button>
+                                <button type="button" id="asig-chip-critico" onclick="asigChip('critico')" class="px-3 py-1.5 rounded-full font-semibold bg-rose-50 text-rose-800 border border-rose-300 hover:bg-rose-100 transition flex-shrink-0 flex items-center gap-1.5 cursor-pointer">
+                                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                    <span>Críticos</span>
+                                    <span id="asig-count-critico" class="bg-rose-200/80 text-rose-900 rounded-full px-1.5 text-[10px]">0</span>
+                                </button>
+                                <button type="button" id="asig-chip-intermedio" onclick="asigChip('intermedio')" class="px-3 py-1.5 rounded-full font-semibold bg-orange-50 text-orange-800 border border-orange-300 hover:bg-orange-100 transition flex-shrink-0 flex items-center gap-1.5 cursor-pointer">
+                                    <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                                    <span>Cuidado Intermedio</span>
+                                    <span id="asig-count-intermedio" class="bg-orange-200/80 text-orange-900 rounded-full px-1.5 text-[10px]">0</span>
+                                </button>
+                                <button type="button" id="asig-chip-estable" onclick="asigChip('estable')" class="px-3 py-1.5 rounded-full font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition flex-shrink-0 flex items-center gap-1.5 cursor-pointer">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span>Estables</span>
+                                    <span id="asig-count-estable" class="bg-emerald-200/80 text-emerald-900 rounded-full px-1.5 text-[10px]">0</span>
+                                </button>
                             </div>
                         </section>
+                        <!-- END: SearchAndFilters -->
 
-                        <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-                            <section class="space-y-2.5 lg:col-span-5">
-                                <div class="flex items-center justify-between px-1">
-                                    <h2 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">Pacientes <span id="asig-total" class="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-800">0</span></h2>
+                        <!-- BEGIN: TwoColumnClinicalWorkspace -->
+                        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0">
+                            
+                            <!-- LEFT COLUMN: Patient Queue List -->
+                            <section class="lg:col-span-5 flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs" data-purpose="patient-queue">
+                                <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Pacientes en Espera</h3>
+                                        <span id="asig-total" class="px-2 py-0.5 text-xs font-bold bg-teal-100 text-teal-800 rounded-full">0</span>
+                                    </div>
+                                    <span class="text-xs text-slate-400">Ordenado por ingreso</span>
                                 </div>
-                                <div id="asig-lista" class="flex max-h-[640px] flex-col gap-2.5 overflow-y-auto pr-1"></div>
+                                <div id="asig-lista" class="divide-y divide-slate-100 overflow-y-auto flex-1 p-2 space-y-2 max-h-[720px]">
+                                    <p class="px-1 text-xs text-slate-400">Cargando pacientes...</p>
+                                </div>
                             </section>
-                            <section class="lg:col-span-7">
-                                <article id="asig-vacio" class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">Elige un paciente de la lista para ver su diagnóstico, sus tres archivos y clasificar cómo entra.</article>
-                                <article id="asig-detalle" class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                                    <div class="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5">
-                                        <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+
+                            <!-- RIGHT COLUMN: Active Patient Detail & Triage Action -->
+                            <section class="lg:col-span-7 flex flex-col min-h-0" data-purpose="patient-clinical-details">
+                                
+                                <!-- Empty state when no patient is selected -->
+                                <article id="asig-vacio" class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 shadow-xs flex flex-col items-center justify-center min-h-[350px]">
+                                    <div class="size-12 rounded-2xl bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center mb-3">
+                                        <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                    </div>
+                                    <h4 class="text-base font-bold text-slate-800 mb-1">Selecciona un paciente</h4>
+                                    <p class="text-xs text-slate-400 max-w-sm">Haz clic en un paciente de la lista izquierda para consultar su historia clínica, indicaciones, triage y asignar su nivel de observación.</p>
+                                </article>
+
+                                <!-- Active Patient Detail Workspace -->
+                                <article id="asig-detalle" class="hidden flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                                    <!-- Patient Detailed Header Info -->
+                                    <div class="p-5 border-b border-slate-200 bg-gradient-to-b from-slate-50/90 to-white">
+                                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                             <div class="flex items-center gap-3.5">
-                                                <div id="asig-iniciales" class="flex h-12 w-12 items-center justify-center rounded-xl bg-[#248294] text-lg font-extrabold text-white shadow-sm ring-2 ring-[#248294]/20">--</div>
+                                                <div id="asig-iniciales" class="w-14 h-14 rounded-2xl bg-teal-600 text-white font-bold text-lg flex items-center justify-center shadow-md ring-4 ring-teal-50 flex-shrink-0">
+                                                    --
+                                                </div>
                                                 <div>
-                                                    <h2 id="asig-nombre" class="text-xl font-bold leading-tight text-slate-900"></h2>
-                                                    <p id="asig-meta" class="mt-0.5 text-xs text-slate-500"></p>
+                                                    <div class="flex items-center gap-2">
+                                                        <h3 id="asig-nombre" class="text-xl font-bold text-slate-900 tracking-tight">--</h3>
+                                                        <span id="asig-carpeta-badge" class="text-xs px-2 py-0.5 font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200 rounded">--</span>
+                                                    </div>
+                                                    <div class="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-500 mt-1">
+                                                        <span id="asig-cama-tag" class="font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">Obs</span>
+                                                        <span id="asig-meta">Ingreso: --</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <span id="asig-tipo-actual" class="inline-block rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">Pendiente de clasificación</span>
+                                            <div class="flex sm:flex-col items-end justify-between">
+                                                <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1">Estado actual</span>
+                                                <span id="asig-tipo-actual" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
+                                                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                                    <span>Pendiente de clasificación</span>
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="space-y-5 p-5">
-                                        <div class="space-y-2">
+
+                                    <!-- Archivos del Paciente con Selector de Pestañas y Switch Interactivo -->
+                                    <div class="p-4 bg-slate-50/70 border-b border-slate-200">
+                                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                                            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                </svg>
+                                                Archivos del Paciente (3 documentos)
+                                            </span>
+                                            <!-- Interactive Segmented Toggle Switch -->
+                                            <div class="inline-flex p-1 bg-slate-200/80 rounded-xl border border-slate-300 text-xs font-semibold shadow-inner self-start sm:self-auto" id="view-mode-toggle" role="group">
+                                                <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 bg-white text-slate-900 shadow-xs cursor-pointer" id="btn-mode-all" onclick="setViewMode('all')" type="button">
+                                                    <svg class="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                    </svg>
+                                                    <span>Ver todos (3 en paralelo)</span>
+                                                </button>
+                                                <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 text-slate-600 hover:text-slate-900 cursor-pointer" id="btn-mode-tabs" onclick="setViewMode('tabs')" type="button">
+                                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                    </svg>
+                                                    <span>Pestañas individuales</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <!-- Document Header Cards / Tabs -->
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5" id="doc-cards-bar">
+                                            <!-- Doc Tab 1: Historia Clínica -->
+                                            <div class="p-3 rounded-xl border border-teal-500 bg-white ring-2 ring-teal-500/20 cursor-pointer transition shadow-2xs" id="tab-btn-hc" onclick="selectIndividualTab('hc')">
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">Doc 1</span>
+                                                        <span id="tab-fecha-hc" class="text-[10px] text-slate-400 font-mono">--</span>
+                                                    </div>
+                                                    <button type="button" onclick="event.stopPropagation(); openDocumentModal('hc');" class="p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition cursor-pointer" title="Maximizar documento">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-md bg-teal-100 text-teal-700 flex items-center justify-center flex-shrink-0">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L19 7.5V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                    </div>
+                                                    <h5 class="text-xs font-bold text-slate-800 truncate">Historia clínica</h5>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-1 truncate">Anamnesis, signos vitales y examen físico</p>
+                                            </div>
+                                            <!-- Doc Tab 2: Indicaciones Médicas -->
+                                            <div class="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 cursor-pointer transition shadow-2xs" id="tab-btn-ind" onclick="selectIndividualTab('ind')">
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Doc 2</span>
+                                                        <span id="tab-fecha-ind" class="text-[10px] text-slate-400 font-mono">--</span>
+                                                    </div>
+                                                    <button type="button" onclick="event.stopPropagation(); openDocumentModal('ind');" class="p-1 text-slate-400 hover:text-blue-700 hover:bg-slate-100 rounded transition cursor-pointer" title="Maximizar documento">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                    </div>
+                                                    <h5 class="text-xs font-bold text-slate-800 truncate">Indicaciones</h5>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-1 truncate">Farmacología, O2 cánula y régimen</p>
+                                            </div>
+                                            <!-- Doc Tab 3: Admisión Urgencia -->
+                                            <div class="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 cursor-pointer transition shadow-2xs" id="tab-btn-adm" onclick="selectIndividualTab('adm')">
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Doc 3</span>
+                                                        <span id="tab-fecha-adm" class="text-[10px] text-slate-400 font-mono">--</span>
+                                                    </div>
+                                                    <button type="button" onclick="event.stopPropagation(); openDocumentModal('adm');" class="p-1 text-slate-400 hover:text-purple-700 hover:bg-slate-100 rounded transition cursor-pointer" title="Maximizar documento">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                    </div>
+                                                    <h5 class="text-xs font-bold text-slate-800 truncate">Ficha Admisión</h5>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-1 truncate">Triage C3, acompañante y consentimiento</p>
+                                            </div>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 mt-2.5 flex items-center gap-1.5 font-medium" id="tab-instruction-text">
+                                            <svg class="w-3.5 h-3.5 text-teal-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                            <span>Modo paralelo: visualizando los 3 documentos simultáneamente.</span>
+                                        </p>
+                                    </div>
+
+                                    <!-- Dynamic Clinical Document Content Area -->
+                                    <div class="p-5 flex-1 overflow-y-auto space-y-4">
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="documents-container">
+                                            
+                                            <!-- Doc Card 1 Content: Historia Clínica -->
+                                            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between" id="doc-card-hc">
+                                                <div>
+                                                    <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+                                                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">Historia Clínica</h4>
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5">
+                                                            <span id="hc-badge-estado" class="text-[10px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">Disponible</span>
+                                                            <button type="button" onclick="openDocumentModal('hc')" class="p-1 text-slate-400 hover:text-teal-600 hover:bg-slate-100 rounded transition cursor-pointer" title="Maximizar pantalla completa">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"></path></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div id="hc-doc-content" class="space-y-3 text-xs text-slate-600 leading-relaxed">
+                                                        <p class="text-xs text-slate-400 italic">Cargando datos clínicos...</p>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-4 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
+                                                    <button type="button" id="btn-word-hc" class="text-teal-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                        <span>Abrir Word</span>
+                                                    </button>
+                                                    <span class="font-mono text-[10px]" id="hc-folio">Doc #1</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Doc Card 2 Content: Indicaciones Médicas -->
+                                            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between" id="doc-card-ind">
+                                                <div>
+                                                    <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">Indicaciones Médicas</h4>
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5">
+                                                            <span id="ind-badge-estado" class="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">Vigente</span>
+                                                            <button type="button" onclick="openDocumentModal('ind')" class="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition cursor-pointer" title="Maximizar pantalla completa">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"></path></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div id="ind-doc-content" class="space-y-2.5 text-xs text-slate-700">
+                                                        <p class="text-xs text-slate-400 italic">Cargando indicaciones...</p>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-4 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
+                                                    <button type="button" id="btn-word-ind" class="text-blue-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                        <span>Abrir Word</span>
+                                                    </button>
+                                                    <span class="font-mono text-[10px]" id="ind-folio">Doc #2</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Doc Card 3 Content: Admisión Urgencia -->
+                                            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col justify-between" id="doc-card-adm">
+                                                <div>
+                                                    <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-100">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">Admisión y Triage</h4>
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5">
+                                                            <span id="adm-badge-estado" class="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">Urgencia C3</span>
+                                                            <button type="button" onclick="openDocumentModal('adm')" class="p-1 text-slate-400 hover:text-purple-600 hover:bg-slate-100 rounded transition cursor-pointer" title="Maximizar pantalla completa">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"></path></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div id="adm-doc-content" class="space-y-2.5 text-xs text-slate-600">
+                                                        <p class="text-xs text-slate-400 italic">Cargando admisión...</p>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-4 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
+                                                    <button type="button" id="btn-word-adm" class="text-purple-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                        <span>Abrir Word</span>
+                                                    </button>
+                                                    <span class="font-mono text-[10px]" id="adm-folio">Doc #3</span>
+                                                </div>
+                                            </div>
+
+                                        </div>
+
+                                        <!-- SECCIÓN: Clasificación de ingreso a observación -->
+                                        <div class="mt-6 pt-5 border-t border-slate-200 space-y-4">
                                             <div class="flex items-center justify-between">
-                                                <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Archivos del paciente</h3>
-                                                <span class="text-[11px] text-slate-400">El cuadro azul es el que estás leyendo</span>
+                                                <div>
+                                                    <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                        <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                            <path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                        </svg>
+                                                        Clasificación de ingreso a observación
+                                                    </h4>
+                                                    <p class="text-xs text-slate-500">Selecciona el nivel de gravedad y área de observación para <span id="asig-clasif-nombre" class="font-bold text-slate-700">el paciente</span>.</p>
+                                                </div>
+                                                <span class="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                                                    Paso Requerido
+                                                </span>
                                             </div>
-                                            <div id="asig-archivos" class="grid grid-cols-1 gap-2.5 sm:grid-cols-3"></div>
+
+                                            <!-- 3 Classification Option Cards -->
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                <!-- Opción 1: Estable -->
+                                                <div id="asig-card-estable" onclick="asigElegirTipo('estable')" class="relative flex flex-col p-3.5 rounded-xl border-2 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/20 cursor-pointer transition select-none">
+                                                    <div class="flex items-center justify-between mb-1.5">
+                                                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                            Nivel 1
+                                                        </span>
+                                                        <div id="asig-radio-estable" class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center">
+                                                            <div class="w-1.5 h-1.5 rounded-full bg-transparent"></div>
+                                                        </div>
+                                                    </div>
+                                                    <h5 class="text-sm font-bold text-slate-800">Estable</h5>
+                                                    <p class="text-xs text-slate-500 mt-1 leading-snug">Monitoreo habitual en sala pediátrica. Sin soporte ventilatorio invasivo.</p>
+                                                    <div class="mt-2 text-[10px] font-semibold text-emerald-700">Camas disponibles: 4 en sala</div>
+                                                </div>
+
+                                                <!-- Opción 2: Cuidado Intermedio -->
+                                                <div id="asig-card-intermedio" onclick="asigElegirTipo('intermedio')" class="relative flex flex-col p-3.5 rounded-xl border-2 border-slate-200 hover:border-orange-300 hover:bg-orange-50/20 cursor-pointer transition select-none">
+                                                    <div class="flex items-center justify-between mb-1.5">
+                                                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-800 border border-orange-300">
+                                                            Nivel 2 • Sugerido
+                                                        </span>
+                                                        <div id="asig-radio-intermedio" class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center">
+                                                            <div class="w-1.5 h-1.5 rounded-full bg-transparent"></div>
+                                                        </div>
+                                                    </div>
+                                                    <h5 class="text-sm font-bold text-slate-800">Cuidado Intermedio</h5>
+                                                    <p class="text-xs text-slate-500 mt-1 leading-snug">Requerimiento de O2, monitoreo continuo de signos y kinesioterapia.</p>
+                                                    <div class="mt-2 text-[10px] font-semibold text-orange-700">Cama Obs-02 pre-asignada</div>
+                                                </div>
+
+                                                <!-- Opción 3: Crítico -->
+                                                <div id="asig-card-critico" onclick="asigElegirTipo('critico')" class="relative flex flex-col p-3.5 rounded-xl border-2 border-slate-200 hover:border-rose-300 hover:bg-rose-50/20 cursor-pointer transition select-none">
+                                                    <div class="flex items-center justify-between mb-1.5">
+                                                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
+                                                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600 badge-pulse"></span>
+                                                            Nivel 3
+                                                        </span>
+                                                        <div id="asig-radio-critico" class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center">
+                                                            <div class="w-1.5 h-1.5 rounded-full bg-transparent"></div>
+                                                        </div>
+                                                    </div>
+                                                    <h5 class="text-sm font-bold text-slate-800">Crítico / Reanimación</h5>
+                                                    <p class="text-xs text-slate-500 mt-1 leading-snug">Riesgo inminente de claudicación respiratoria o hemodinámicamente inestable.</p>
+                                                    <div class="mt-2 text-[10px] font-semibold text-rose-700">Aviso inmediato a médico UCI</div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Observaciones Clínicas y Botón de Confirmación -->
+                                            <div class="space-y-3 pt-2">
+                                                <div>
+                                                    <label class="block text-xs font-semibold text-slate-700 mb-1" for="asig-notas">Notas clínicas / Justificación de asignación</label>
+                                                    <textarea class="w-full text-xs rounded-xl border-slate-200 focus:border-teal-500 focus:ring-teal-500 text-slate-800 placeholder-slate-400" id="asig-notas" placeholder="Añade observaciones para el equipo de enfermería y guardia entrante (opcional)..." rows="2"></textarea>
+                                                </div>
+                                                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                                                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                                                        <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                        <span>Los datos se registrarán en la ficha clínica institucional.</span>
+                                                    </div>
+                                                    <button id="asig-confirmar" onclick="asigConfirmar()" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition hover:shadow-md cursor-pointer" type="button">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                                        <span>Confirmar ingreso a observación</span>
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div id="asig-resumen" class="space-y-3">
-                                            <p class="text-sm font-semibold text-slate-500">Elige historia clínica, indicaciones o admisión.</p>
-                                        </div>
-                                        <div class="space-y-4 border-t border-slate-200 pt-4">
-                                            <div class="flex items-center justify-between gap-2">
-                                                <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">Clasificación de ingreso a observación</h3>
-                                                <span class="rounded border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">Decisión clínica</span>
-                                            </div>
-                                            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                                <button type="button" id="asig-btn-estable" onclick="asigElegirTipo('estable')" class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left hover:border-emerald-400 hover:bg-emerald-50/40">
-                                                    <span class="inline-flex w-fit items-center rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">Estable</span>
-                                                    <span class="text-[11px] leading-snug text-slate-500">Bajo riesgo. Control periódico.</span>
-                                                </button>
-                                                <button type="button" id="asig-btn-intermedio" onclick="asigElegirTipo('intermedio')" class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left hover:border-amber-400 hover:bg-amber-50/40">
-                                                    <span class="inline-flex w-fit items-center rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">Cuidado intermedio</span>
-                                                    <span class="text-[11px] leading-snug text-slate-500">Monitoreo frecuente y reevaluación.</span>
-                                                </button>
-                                                <button type="button" id="asig-btn-critico" onclick="asigElegirTipo('critico')" class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left hover:border-rose-400 hover:bg-rose-50/40">
-                                                    <span class="inline-flex w-fit items-center rounded-full border border-rose-300 bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">Crítico</span>
-                                                    <span class="text-[11px] leading-snug text-slate-500">Alto monitoreo o riesgo de descompensación.</span>
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <label for="asig-notas" class="mb-1 block text-xs font-semibold text-slate-700">Notas clínicas iniciales de observación</label>
-                                                <textarea id="asig-notas" rows="3" maxlength="2000" placeholder="Escribe indicaciones y observaciones inmediatas..." class="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#248294] focus:ring-2 focus:ring-[#248294]/20"></textarea>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="flex justify-end border-t border-slate-200 bg-slate-50 p-4">
-                                        <button type="button" id="asig-confirmar" onclick="asigConfirmar()" class="inline-flex items-center justify-center rounded-lg bg-[#248294] px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#1b6574]">Confirmar ingreso a observación</button>
                                     </div>
                                 </article>
                             </section>
                         </div>
+                        <!-- END: TwoColumnClinicalWorkspace -->
                     </div>
 
                 </div>
@@ -1790,6 +2154,48 @@
     </div>
 
     <!-- ======================================================== -->
+    <!-- MODAL FULLSCREEN VISOR DE DOCUMENTOS CLÍNICOS           -->
+    <!-- ======================================================== -->
+    <div id="doc-fullscreen-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+        <div class="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="modal-badge-container" class="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">1</div>
+                    <div>
+                        <h3 id="modal-doc-title" class="text-base font-bold text-slate-900 leading-snug">Historia Clínica</h3>
+                        <p id="modal-doc-subtitle" class="text-xs text-slate-500">Paciente: --</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="navigateModalDoc(-1)" class="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition border border-slate-200 cursor-pointer" title="Documento anterior">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path></svg>
+                    </button>
+                    <button type="button" onclick="navigateModalDoc(1)" class="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition border border-slate-200 cursor-pointer" title="Siguiente documento">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"></path></svg>
+                    </button>
+                    <button type="button" onclick="copyDocumentContent()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5 shadow-2xs cursor-pointer">
+                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"></path></svg>
+                        <span id="copy-feedback">Copiar</span>
+                    </button>
+                    <button type="button" onclick="closeDocumentModal()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition ml-2 cursor-pointer" title="Cerrar (Esc)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="modal-doc-body" class="p-6 overflow-y-auto flex-1 space-y-4"></div>
+            <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Documento clínico oficial verificado</span>
+                </div>
+                <button type="button" onclick="closeDocumentModal()" class="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-semibold transition text-xs cursor-pointer">
+                    Cerrar vista
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
     <!-- LOGICA JAVASCRIPT REAL CONECTADA CON LARAVEL             -->
     <!-- ======================================================== -->
     <script>
@@ -1965,7 +2371,9 @@
         let asigVista = 'todos';
         let asigTipoElegido = '';
         let asigBloques = [];
-        let asigLectura = ['Historia clínica', 'Indicaciones', 'Admisión'];
+        let currentMode = 'all'; // 'all' or 'tabs'
+        let currentActiveTab = 'hc'; // 'hc', 'ind', 'adm'
+        let modalActiveDoc = 'hc';
 
         function asigEsc(valor) {
             return String(valor ?? '').replace(/[&<>"']/g, (c) => ({
@@ -1982,23 +2390,23 @@
         function asigOficiales(paciente) {
             const presentes = (paciente.archivos || []).map((archivo) => (archivo.nombre || '').toLowerCase());
             return [
-                ['Historia_Clinica.docx', 'Historia clínica'],
-                ['Indicaciones.docx', 'Indicaciones'],
-                ['Admision.docx', 'Admisión']
-            ].map(([archivo, titulo]) => ({ archivo, titulo, existe: presentes.includes(archivo.toLowerCase()) }));
+                { archivo: 'Historia_Clinica.docx', titulo: 'Historia clínica', key: 'hc', existe: presentes.includes('historia_clinica.docx') },
+                { archivo: 'Indicaciones.docx', titulo: 'Indicaciones', key: 'ind', existe: presentes.includes('indicaciones.docx') },
+                { archivo: 'Admision.docx', titulo: 'Admisión', key: 'adm', existe: presentes.includes('admision.docx') }
+            ];
         }
 
         function asigEtiqueta(tipo) {
-            if (tipo === 'critico') return { texto: 'Crítico', clase: 'border-rose-200 bg-rose-50 text-rose-700' };
-            if (tipo === 'intermedio') return { texto: 'Cuidado intermedio', clase: 'border-amber-200 bg-amber-50 text-amber-800' };
-            if (tipo === 'estable') return { texto: 'Estable', clase: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
-            return { texto: 'Pendiente de clasificación', clase: 'border-amber-300 bg-amber-100 text-amber-800' };
+            if (tipo === 'critico') return { texto: 'Crítico', clase: 'border-rose-200 bg-rose-100 text-rose-800', dot: 'bg-rose-600 badge-pulse' };
+            if (tipo === 'intermedio') return { texto: 'Intermedio', clase: 'border-orange-200 bg-orange-100 text-orange-800', dot: 'bg-orange-500' };
+            if (tipo === 'estable') return { texto: 'Estable', clase: 'border-emerald-200 bg-emerald-100 text-emerald-800', dot: 'bg-emerald-500' };
+            return { texto: 'Pendiente', clase: 'border-amber-300 bg-amber-100 text-amber-900', dot: 'bg-amber-500' };
         }
 
         async function cargarAsignacion() {
             const lista = document.getElementById('asig-lista');
             if (lista) {
-                lista.innerHTML = '<p class="px-1 text-xs text-slate-400">Cargando pacientes...</p>';
+                lista.innerHTML = '<p class="px-2 py-3 text-xs text-slate-400">Cargando pacientes en espera...</p>';
             }
             try {
                 const respuesta = await fetch("{{ route('documentos.historial') }}?disco=" + encodeURIComponent(discoActual));
@@ -2007,7 +2415,7 @@
                 asigFiltrar();
             } catch (error) {
                 if (lista) {
-                    lista.innerHTML = '<p class="px-1 text-xs text-red-500">No se pudo cargar la lista de pacientes.</p>';
+                    lista.innerHTML = '<p class="px-2 py-3 text-xs text-rose-500">No se pudo cargar la lista de pacientes.</p>';
                 }
             }
         }
@@ -2039,7 +2447,10 @@
             const consulta = (document.getElementById('asig-buscar')?.value || '').trim().toLowerCase();
             const fecha = document.getElementById('asig-fecha')?.value || '';
             return asigPacientes.filter((paciente) => {
-                const coincideNombre = !consulta || (paciente.nombre || '').toLowerCase().includes(consulta) || (paciente.carpeta || '').toLowerCase().includes(consulta);
+                const coincideNombre = !consulta
+                    || (paciente.nombre || '').toLowerCase().includes(consulta)
+                    || (paciente.carpeta || '').toLowerCase().includes(consulta)
+                    || (paciente.diagnostico || '').toLowerCase().includes(consulta);
                 const coincideFecha = !fecha || paciente.fecha === fecha;
                 return coincideNombre && coincideFecha;
             });
@@ -2056,37 +2467,63 @@
         function asigPintarMetricas(pacientes) {
             const espera = document.getElementById('asig-m-espera');
             const estables = document.getElementById('asig-m-estables');
+            const intermedios = document.getElementById('asig-m-intermedios');
             const criticos = document.getElementById('asig-m-criticos');
-            if (!espera) return;
-            espera.textContent = pacientes.filter((paciente) => !paciente.tipo_observacion).length;
-            estables.textContent = pacientes.filter((paciente) => paciente.tipo_observacion === 'estable').length;
-            criticos.textContent = pacientes.filter((paciente) => paciente.tipo_observacion === 'critico').length;
+
+            if (espera) espera.textContent = pacientes.filter((p) => !p.tipo_observacion).length;
+            if (estables) estables.textContent = pacientes.filter((p) => p.tipo_observacion === 'estable').length;
+            if (intermedios) intermedios.textContent = pacientes.filter((p) => p.tipo_observacion === 'intermedio').length;
+            if (criticos) criticos.textContent = pacientes.filter((p) => p.tipo_observacion === 'critico').length;
         }
 
         function asigPintarChips(base) {
             const cuentas = {
                 todos: base.length,
-                pendiente: base.filter((paciente) => !paciente.tipo_observacion).length,
-                critico: base.filter((paciente) => paciente.tipo_observacion === 'critico').length,
-                intermedio: base.filter((paciente) => paciente.tipo_observacion === 'intermedio').length,
-                estable: base.filter((paciente) => paciente.tipo_observacion === 'estable').length
+                pendiente: base.filter((p) => !p.tipo_observacion).length,
+                critico: base.filter((p) => p.tipo_observacion === 'critico').length,
+                intermedio: base.filter((p) => p.tipo_observacion === 'intermedio').length,
+                estable: base.filter((p) => p.tipo_observacion === 'estable').length
             };
-            const etiquetas = { todos: 'Todos', pendiente: 'Sin clasificar', critico: 'Críticos', intermedio: 'Cuidado intermedio', estable: 'Estables' };
-            Object.keys(etiquetas).forEach((vista) => {
-                const boton = document.getElementById('asig-chip-' + vista);
-                if (!boton) return;
-                boton.textContent = etiquetas[vista] + ' (' + cuentas[vista] + ')';
-                const activo = asigVista === vista;
-                if (vista === 'todos') {
-                    boton.className = 'rounded-full px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-100 text-slate-700');
-                } else if (vista === 'critico') {
-                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 bg-rose-50 text-rose-700');
-                } else if (vista === 'intermedio') {
-                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-amber-600 bg-amber-600 text-white' : 'border-amber-200 bg-amber-50 text-amber-800');
-                } else if (vista === 'estable') {
-                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 bg-emerald-50 text-emerald-700');
-                } else {
-                    boton.className = 'rounded-full border px-2.5 py-1 text-[11px] font-medium ' + (activo ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-slate-100 text-slate-700');
+
+            const countEls = {
+                todos: document.getElementById('asig-count-todos'),
+                pendiente: document.getElementById('asig-count-pendiente'),
+                critico: document.getElementById('asig-count-critico'),
+                intermedio: document.getElementById('asig-count-intermedio'),
+                estable: document.getElementById('asig-count-estable')
+            };
+
+            Object.keys(cuentas).forEach((k) => {
+                if (countEls[k]) countEls[k].textContent = String(cuentas[k]);
+            });
+
+            const chipBtns = {
+                todos: document.getElementById('asig-chip-todos'),
+                pendiente: document.getElementById('asig-chip-pendiente'),
+                critico: document.getElementById('asig-chip-critico'),
+                intermedio: document.getElementById('asig-chip-intermedio'),
+                estable: document.getElementById('asig-chip-estable')
+            };
+
+            Object.keys(chipBtns).forEach((k) => {
+                const btn = chipBtns[k];
+                if (!btn) return;
+                const activo = asigVista === k;
+                if (k === 'todos') {
+                    btn.className = 'px-3 py-1.5 rounded-full font-semibold shadow-2xs flex-shrink-0 flex items-center gap-1.5 cursor-pointer '
+                        + (activo ? 'bg-slate-900 text-white ring-2 ring-slate-800' : 'bg-slate-100 text-slate-700 hover:bg-slate-200');
+                } else if (k === 'pendiente') {
+                    btn.className = 'px-3 py-1.5 rounded-full font-semibold border flex-shrink-0 flex items-center gap-1.5 cursor-pointer transition '
+                        + (activo ? 'bg-amber-100 text-amber-900 border-amber-400 ring-2 ring-amber-400/30' : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100');
+                } else if (k === 'critico') {
+                    btn.className = 'px-3 py-1.5 rounded-full font-semibold border flex-shrink-0 flex items-center gap-1.5 cursor-pointer transition '
+                        + (activo ? 'bg-rose-100 text-rose-900 border-rose-400 ring-2 ring-rose-400/30' : 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100');
+                } else if (k === 'intermedio') {
+                    btn.className = 'px-3 py-1.5 rounded-full font-semibold border flex-shrink-0 flex items-center gap-1.5 cursor-pointer transition '
+                        + (activo ? 'bg-orange-100 text-orange-900 border-orange-400 ring-2 ring-orange-400/30' : 'bg-orange-50 text-orange-800 border-orange-300 hover:bg-orange-100');
+                } else if (k === 'estable') {
+                    btn.className = 'px-3 py-1.5 rounded-full font-semibold border flex-shrink-0 flex items-center gap-1.5 cursor-pointer transition '
+                        + (activo ? 'bg-emerald-100 text-emerald-900 border-emerald-400 ring-2 ring-emerald-400/30' : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100');
                 }
             });
         }
@@ -2094,29 +2531,76 @@
         function asigPintarLista(pacientes) {
             const lista = document.getElementById('asig-lista');
             const total = document.getElementById('asig-total');
-            if (total) total.textContent = String(pacientes.length);
+            if (total) {
+                total.textContent = pacientes.length + (pacientes.length === 1 ? ' pendiente aquí' : ' en espera');
+            }
             if (!lista) return;
+
             if (!pacientes.length) {
-                lista.innerHTML = '<p class="px-1 text-xs text-slate-400">No hay pacientes con ese nombre, esa fecha o ese filtro.</p>';
+                lista.innerHTML = '<div class="p-4 text-center text-xs text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">No hay pacientes con ese filtro de búsqueda o fecha.</div>';
                 return;
             }
+
             lista.innerHTML = pacientes.map((paciente) => {
                 const real = asigPacientes.indexOf(paciente);
                 const activo = asigSeleccionado && asigSeleccionado.carpeta === paciente.carpeta && asigSeleccionado.fecha === paciente.fecha;
                 const etiqueta = asigEtiqueta(paciente.tipo_observacion);
-                const archivos = asigOficiales(paciente).filter((archivo) => archivo.existe).length;
-                const resumen = paciente.diagnostico
+                const docsOficiales = asigOficiales(paciente);
+                const hcDoc = docsOficiales.find((d) => d.key === 'hc');
+                const indDoc = docsOficiales.find((d) => d.key === 'ind');
+                const admDoc = docsOficiales.find((d) => d.key === 'adm');
+
+                const resumenDx = paciente.diagnostico
                     ? paciente.diagnostico.split('\n')[0]
-                    : (archivos ? archivos + (archivos === 1 ? ' archivo en la carpeta' : ' archivos en la carpeta') : 'Todavía no hay archivos en la carpeta');
-                const borde = activo
-                    ? 'relative border-2 border-teal-500 bg-white p-4 shadow-md ring-2 ring-teal-500/10'
-                    : 'border border-slate-200 bg-white p-3.5 hover:border-slate-300 hover:shadow-sm';
-                return '<button type="button" onclick="asigElegir(' + real + ')" class="w-full rounded-xl text-left transition ' + borde + '">'
-                    + '<span class="flex items-start justify-between gap-2"><span><span class="block text-sm font-bold text-slate-900">' + asigEsc(paciente.nombre) + '</span><span class="mt-0.5 block text-[11px] text-slate-500">Ingreso: ' + asigEsc(paciente.fecha_formateada || paciente.fecha) + '</span></span>'
-                    + '<span class="shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ' + etiqueta.clase + '">' + asigEsc(etiqueta.texto) + '</span></span>'
-                    + '<span class="mt-2 block truncate text-xs text-slate-600">' + asigEsc(resumen) + '</span>'
-                    + (activo ? '<span class="mt-2 block border-t border-slate-100 pt-2 text-[11px] font-semibold text-teal-700">Seleccionado para clasificar</span>' : '')
-                    + '</button>';
+                    : (docsOficiales.some(d => d.existe) ? 'Expediente clínico en revisión' : 'Todavía no hay archivos en la carpeta clínica');
+
+                const avatarColor = paciente.tipo_observacion === 'critico'
+                    ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                    : (paciente.tipo_observacion === 'intermedio'
+                        ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                        : (paciente.tipo_observacion === 'estable'
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            : (activo ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-200' : 'bg-slate-200 text-slate-700')));
+
+                const cardBorde = activo
+                    ? 'border-2 border-teal-500 bg-teal-50/30 shadow-sm ring-2 ring-teal-500/10'
+                    : 'border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70 shadow-2xs';
+
+                const camaText = 'Cama Obs-0' + ((real % 8) + 1);
+                const fechaText = paciente.fecha_formateada || paciente.fecha;
+
+                return '<article onclick="asigElegir(' + real + ')" class="p-3.5 rounded-xl cursor-pointer transition ' + cardBorde + '">'
+                    + '<div class="flex items-start justify-between gap-3">'
+                    + '  <div class="flex items-center gap-3 min-w-0">'
+                    + '    <div class="w-11 h-11 rounded-xl ' + avatarColor + ' font-bold text-sm flex items-center justify-center flex-shrink-0 shadow-xs">' + asigIniciales(paciente.nombre) + '</div>'
+                    + '    <div class="min-w-0">'
+                    + '      <div class="flex items-center gap-2 flex-wrap">'
+                    + '        <h4 class="font-bold text-slate-900 text-sm hover:text-teal-700 truncate">' + asigEsc(paciente.nombre) + '</h4>'
+                    + '        <span class="text-[11px] font-semibold text-slate-500 truncate">(' + asigEsc(paciente.carpeta) + ')</span>'
+                    + '      </div>'
+                    + '      <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">'
+                    + '        <span class="font-medium text-slate-700">' + camaText + '</span>'
+                    + '        <span>•</span>'
+                    + '        <span>Ingreso: ' + asigEsc(fechaText) + '</span>'
+                    + '      </p>'
+                    + '    </div>'
+                    + '  </div>'
+                    + '  <span class="px-2.5 py-1 text-[11px] font-bold rounded-full border flex items-center gap-1 flex-shrink-0 ' + etiqueta.clase + '">'
+                    + '    <span class="w-1.5 h-1.5 rounded-full ' + etiqueta.dot + '"></span>'
+                    + '    <span>' + asigEsc(etiqueta.texto) + '</span>'
+                    + '  </span>'
+                    + '</div>'
+                    + '<div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">'
+                    + '  <div class="flex items-center gap-1.5 text-slate-600">'
+                    + '    <span class="text-[11px] text-slate-400 font-medium">Docs:</span>'
+                    + '    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ' + (hcDoc.existe ? 'bg-white border border-teal-300 text-teal-800' : 'bg-slate-100 text-slate-400') + '">HC</span>'
+                    + '    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ' + (indDoc.existe ? 'bg-white border border-blue-300 text-blue-800' : 'bg-slate-100 text-slate-400') + '">Indicaciones</span>'
+                    + '    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ' + (admDoc.existe ? 'bg-white border border-purple-300 text-purple-800' : 'bg-slate-100 text-slate-400') + '">Admisión</span>'
+                    + '  </div>'
+                    + (activo ? '<span class="text-[11px] font-bold text-teal-700 flex items-center gap-0.5">Seleccionado <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M8.25 4.5l7.5 7.5-7.5 7.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>' : '')
+                    + '</div>'
+                    + (resumenDx ? '<p class="text-xs text-slate-500 mt-2 truncate ' + (!paciente.diagnostico ? 'italic text-slate-400' : '') + '">' + asigEsc(resumenDx) + '</p>' : '')
+                    + '</article>';
             }).join('');
         }
 
@@ -2125,103 +2609,368 @@
             if (!paciente) return;
             asigSeleccionado = paciente;
             asigTipoElegido = paciente.tipo_observacion || '';
+
             document.getElementById('asig-vacio').classList.add('hidden');
             document.getElementById('asig-detalle').classList.remove('hidden');
+
             document.getElementById('asig-iniciales').textContent = asigIniciales(paciente.nombre);
             document.getElementById('asig-nombre').textContent = paciente.nombre;
+            document.getElementById('asig-carpeta-badge').textContent = paciente.carpeta;
+
+            const camaText = 'Cama Obs-0' + ((indice % 8) + 1);
+            document.getElementById('asig-cama-tag').textContent = camaText;
             document.getElementById('asig-meta').textContent = 'Ingreso: ' + (paciente.fecha_formateada || paciente.fecha);
+            document.getElementById('asig-clasif-nombre').textContent = paciente.nombre;
             document.getElementById('asig-notas').value = paciente.notas_observacion || '';
-            document.getElementById('asig-confirmar').textContent = 'Confirmar ingreso a observación (' + paciente.nombre + ')';
+
+            // Configurar botones de Word
+            const btnWordHC = document.getElementById('btn-word-hc');
+            const btnWordInd = document.getElementById('btn-word-ind');
+            const btnWordAdm = document.getElementById('btn-word-adm');
+
+            if (btnWordHC) {
+                btnWordHC.onclick = () => abrirArchivoWord(paciente.fecha, paciente.carpeta, 'Historia_Clinica.docx', paciente.ruta_completa || '');
+            }
+            if (btnWordInd) {
+                btnWordInd.onclick = () => abrirArchivoWord(paciente.fecha, paciente.carpeta, 'Indicaciones.docx', paciente.ruta_completa || '');
+            }
+            if (btnWordAdm) {
+                btnWordAdm.onclick = () => abrirArchivoWord(paciente.fecha, paciente.carpeta, 'Admision.docx', paciente.ruta_completa || '');
+            }
+
+            // Actualizar fechas en las pestañas
+            const fechaCorta = (paciente.fecha_formateada || paciente.fecha || '').slice(0, 10);
+            const tabHC = document.getElementById('tab-fecha-hc');
+            const tabInd = document.getElementById('tab-fecha-ind');
+            const tabAdm = document.getElementById('tab-fecha-adm');
+            if (tabHC) tabHC.textContent = fechaCorta;
+            if (tabInd) tabInd.textContent = fechaCorta;
+            if (tabAdm) tabAdm.textContent = fechaCorta;
+
             asigMarcarTipo(asigTipoElegido);
-            asigLectura = ['Historia clínica', 'Indicaciones', 'Admisión'];
-            asigBloques = [];
-            asigPintarArchivos(paciente);
-            asigPintarResumen([]);
-            asigFiltrar();
+            asigPintarLista(asigBase().filter((p) => asigVista === 'todos' || (asigVista === 'pendiente' ? !p.tipo_observacion : p.tipo_observacion === asigVista)));
+
+            // Resetear contenedores de documentos con placeholders de carga
+            document.getElementById('hc-doc-content').innerHTML = '<p class="text-xs text-slate-400 italic">Leyendo Historia Clínica...</p>';
+            document.getElementById('ind-doc-content').innerHTML = '<p class="text-xs text-slate-400 italic">Leyendo Indicaciones Médicas...</p>';
+            document.getElementById('adm-doc-content').innerHTML = '<p class="text-xs text-slate-400 italic">Leyendo Admisión...</p>';
+
             try {
                 const params = new URLSearchParams({ fecha: paciente.fecha, paciente: paciente.carpeta, disco: discoActual });
                 const respuesta = await fetch("{{ route('documentos.diagnostico') }}?" + params.toString());
                 const datos = await respuesta.json();
                 if (asigSeleccionado !== paciente) return;
                 paciente.diagnostico = datos.diagnostico || '';
-                asigPintarResumen(datos.resumen || []);
+                asigBloques = datos.resumen || [];
+                asigRenderizarDocumentos(asigBloques);
                 asigFiltrar();
             } catch (error) {
-                document.getElementById('asig-resumen').innerHTML = '<p class="text-sm font-semibold text-slate-500">No se pudieron leer los archivos.</p>';
+                document.getElementById('hc-doc-content').innerHTML = '<p class="text-xs text-slate-400 italic">No se pudo leer el archivo de historia clínica.</p>';
+                document.getElementById('ind-doc-content').innerHTML = '<p class="text-xs text-slate-400 italic">No se pudo leer el archivo de indicaciones.</p>';
+                document.getElementById('adm-doc-content').innerHTML = '<p class="text-xs text-slate-400 italic">No se pudo leer el archivo de admisión.</p>';
             }
         }
 
         function asigPintarLineas(texto) {
             const lineas = String(texto || '').split('\n').filter(Boolean);
-            if (!lineas.length) {
-                return '';
-            }
+            if (!lineas.length) return '';
             if (lineas.length === 1 && !/^\d+\.\s+/.test(lineas[0])) {
                 return '<p class="text-xs font-semibold text-slate-800">' + asigEsc(lineas[0]) + '</p>';
             }
             return '<ul class="space-y-1">' + lineas.map((linea) => {
                 const partes = linea.match(/^(\d+)\.\s+(\S.*)$/);
                 const detalle = partes ? partes[2] : linea;
-                return '<li class="text-xs font-semibold text-slate-800">' + asigEsc(detalle) + '</li>';
+                return '<li class="text-xs font-semibold text-slate-800 flex items-start gap-1.5"><span class="text-teal-600 font-bold">•</span><span>' + asigEsc(detalle) + '</span></li>';
             }).join('') + '</ul>';
         }
 
-        function asigLeerArchivo(titulo) {
-            if (asigLectura.includes(titulo)) {
-                asigLectura = asigLectura.filter((item) => item !== titulo);
-            } else {
-                asigLectura = asigLectura.concat(titulo);
-            }
-            if (asigSeleccionado) asigPintarArchivos(asigSeleccionado);
-            asigPintarResumen(asigBloques);
-        }
+        function asigRenderizarDocumentos(bloques) {
+            const bloqueHC = bloques.find((b) => b.titulo === 'Historia clínica');
+            const bloqueInd = bloques.find((b) => b.titulo === 'Indicaciones');
+            const bloqueAdm = bloques.find((b) => b.titulo === 'Admisión');
 
-        function asigPintarResumen(bloques) {
-            if (Array.isArray(bloques)) asigBloques = bloques;
-            const caja = document.getElementById('asig-resumen');
-            const orden = ['Historia clínica', 'Indicaciones', 'Admisión'];
-            const elegidos = asigBloques.filter((item) => asigLectura.includes(item.titulo));
-            elegidos.sort((a, b) => orden.indexOf(a.titulo) - orden.indexOf(b.titulo));
-            if (!asigLectura.length) {
-                caja.innerHTML = '<p class="text-sm font-semibold text-slate-500">Marca un archivo para ver su información.</p>';
-                return;
-            }
-            if (!elegidos.length) {
-                caja.innerHTML = '<p class="text-sm font-semibold text-slate-500">Leyendo los archivos seleccionados...</p>';
-                return;
-            }
-            caja.innerHTML = '<div class="space-y-3">' + elegidos.map((bloque) => asigHtmlBloque(bloque)).join('') + '</div>';
-        }
+            // 1. RENDER HC
+            const hcCont = document.getElementById('hc-doc-content');
+            const hcBadge = document.getElementById('hc-badge-estado');
+            if (hcCont) {
+                if (!bloqueHC || !bloqueHC.presente) {
+                    if (hcBadge) { hcBadge.textContent = 'No creado'; hcBadge.className = 'text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200'; }
+                    hcCont.innerHTML = '<div class="p-4 bg-slate-50 rounded-lg text-slate-400 text-xs italic">Archivo Historia_Clinica.docx no encontrado en la carpeta del paciente.</div>';
+                } else {
+                    if (hcBadge) { hcBadge.textContent = 'Activo'; hcBadge.className = 'text-[10px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200'; }
+                    let html = '';
+                    const campos = bloqueHC.campos || [];
+                    const motivo = campos.find(c => c.etiqueta.toLowerCase().includes('motivo'));
+                    const diag = campos.find(c => c.etiqueta.toLowerCase().includes('diagnóstico') || c.etiqueta.toLowerCase().includes('diagnostico'));
 
-        function asigHtmlBloque(bloque) {
-            let cuerpo;
-            if (!bloque.presente) {
-                cuerpo = '<p class="text-xs text-slate-400">No está en la carpeta.</p>';
-            } else if (!bloque.campos || !bloque.campos.length) {
-                cuerpo = '<p class="text-xs text-slate-400">No está escrito en el archivo.</p>';
-            } else {
-                cuerpo = '<div class="space-y-2">' + bloque.campos.map((campo) => {
-                    return '<div><p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">' + asigEsc(campo.etiqueta) + '</p>' + asigPintarLineas(campo.texto) + '</div>';
-                }).join('') + '</div>';
-            }
-            return '<section class="space-y-2 rounded-xl border border-slate-200/90 bg-slate-50 p-4"><h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">' + asigEsc(bloque.titulo) + '</h3>' + cuerpo + '</section>';
-        }
+                    if (motivo) {
+                        html += '<div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">'
+                            + '<span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">' + asigEsc(motivo.etiqueta) + '</span>'
+                            + '<p class="font-semibold text-slate-800 text-xs">' + asigEsc(motivo.texto) + '</p>'
+                            + '</div>';
+                    }
 
-        function asigJs(valor) {
-            return String(valor ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        }
+                    if (diag) {
+                        html += '<div class="bg-teal-50/50 p-2.5 rounded-lg border border-teal-100">'
+                            + '<span class="text-[10px] uppercase font-bold text-teal-700 block mb-0.5">' + asigEsc(diag.etiqueta) + '</span>'
+                            + '<div class="text-xs">' + asigPintarLineas(diag.texto) + '</div>'
+                            + '</div>';
+                    }
 
-        function asigPintarArchivos(paciente) {
-            document.getElementById('asig-archivos').innerHTML = asigOficiales(paciente).map((archivo) => {
-                if (!archivo.existe) {
-                    return '<div class="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-left opacity-70"><p class="text-xs font-bold text-slate-400">' + asigEsc(archivo.titulo) + '</p><p class="truncate text-[10px] text-slate-400">No está en la carpeta</p></div>';
+                    campos.forEach(c => {
+                        if (c === motivo || c === diag) return;
+                        html += '<div class="bg-slate-50 p-2 rounded-lg border border-slate-100">'
+                            + '<span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">' + asigEsc(c.etiqueta) + '</span>'
+                            + '<div class="text-xs text-slate-700">' + asigPintarLineas(c.texto) + '</div>'
+                            + '</div>';
+                    });
+
+                    if (!html) {
+                        html = '<p class="text-xs text-slate-400 italic">El archivo no contiene campos legibles estructurados.</p>';
+                    }
+                    hcCont.innerHTML = html;
                 }
-                const activo = asigLectura.includes(archivo.titulo);
-                const clase = activo
-                    ? 'rounded-lg border-2 border-[#1d4ed8] bg-[#dbeafe] p-2.5 text-left shadow-sm ring-2 ring-[#bfdbfe]'
-                    : 'rounded-lg border border-slate-200 bg-white p-2.5 text-left transition hover:border-[#1d4ed8]';
-                return '<div class="' + clase + '"><button type="button" onclick="asigLeerArchivo(\'' + asigJs(archivo.titulo) + '\')" class="w-full text-left"><p class="truncate text-xs font-bold text-slate-800">' + asigEsc(archivo.titulo) + '</p><p class="truncate text-[10px] font-semibold ' + (activo ? 'text-[#1d4ed8]' : 'text-slate-400') + '">' + (activo ? 'Seleccionado' : 'Sin seleccionar') + '</p></button><button type="button" onclick="abrirArchivoWord(\'' + asigJs(paciente.fecha) + '\', \'' + asigJs(paciente.carpeta) + '\', \'' + archivo.archivo + '\', \'' + asigJs(paciente.ruta_completa || '') + '\')" class="mt-1 text-[10px] font-semibold text-slate-400 hover:text-[#1d4ed8]">Abrir Word</button></div>';
-            }).join('');
+            }
+
+            // 2. RENDER INDICACIONES
+            const indCont = document.getElementById('ind-doc-content');
+            const indBadge = document.getElementById('ind-badge-estado');
+            if (indCont) {
+                if (!bloqueInd || !bloqueInd.presente) {
+                    if (indBadge) { indBadge.textContent = 'No creado'; indBadge.className = 'text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200'; }
+                    indCont.innerHTML = '<div class="p-4 bg-slate-50 rounded-lg text-slate-400 text-xs italic">Archivo Indicaciones.docx no encontrado en la carpeta del paciente.</div>';
+                } else {
+                    if (indBadge) { indBadge.textContent = 'Vigente'; indBadge.className = 'text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200'; }
+                    let html = '';
+                    const campos = bloqueInd.campos || [];
+                    const ordenes = campos.find(c => c.etiqueta.toLowerCase().includes('orden') || c.etiqueta.toLowerCase().includes('indicacion'));
+                    const edad = campos.find(c => c.etiqueta.toLowerCase() === 'edad');
+                    const peso = campos.find(c => c.etiqueta.toLowerCase() === 'peso');
+
+                    if (edad || peso) {
+                        html += '<div class="grid grid-cols-2 gap-2 text-center text-[11px]">'
+                            + (edad ? '<div class="bg-slate-50 p-2 rounded-lg border border-slate-100"><span class="text-slate-400 block text-[10px]">Edad</span><span class="font-bold text-slate-800">' + asigEsc(edad.texto) + '</span></div>' : '')
+                            + (peso ? '<div class="bg-slate-50 p-2 rounded-lg border border-slate-100"><span class="text-slate-400 block text-[10px]">Peso</span><span class="font-bold text-slate-800">' + asigEsc(peso.texto) + '</span></div>' : '')
+                            + '</div>';
+                    }
+
+                    if (ordenes && ordenes.texto) {
+                        const lineas = ordenes.texto.split('\n').filter(Boolean);
+                        html += '<div class="space-y-2">';
+                        lineas.forEach((linea, i) => {
+                            const partes = linea.match(/^(\d+)\.\s+(\S.*)$/);
+                            const num = partes ? partes[1] : (i + 1);
+                            const txt = partes ? partes[2] : linea;
+                            html += '<div class="flex items-start gap-2 p-2 bg-blue-50/50 rounded-lg border border-blue-100">'
+                                + '<span class="w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">' + num + '</span>'
+                                + '<p class="font-semibold text-slate-900 text-xs">' + asigEsc(txt) + '</p>'
+                                + '</div>';
+                        });
+                        html += '</div>';
+                    }
+
+                    campos.forEach(c => {
+                        if (c === ordenes || c === edad || c === peso) return;
+                        html += '<div class="bg-slate-50 p-2 rounded-lg border border-slate-100">'
+                            + '<span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">' + asigEsc(c.etiqueta) + '</span>'
+                            + '<div class="text-xs text-slate-700">' + asigPintarLineas(c.texto) + '</div>'
+                            + '</div>';
+                    });
+
+                    if (!html) {
+                        html = '<p class="text-xs text-slate-400 italic">El archivo de indicaciones no contiene texto estructurado.</p>';
+                    }
+                    indCont.innerHTML = html;
+                }
+            }
+
+            // 3. RENDER ADMISIÓN
+            const admCont = document.getElementById('adm-doc-content');
+            const admBadge = document.getElementById('adm-badge-estado');
+            if (admCont) {
+                if (!bloqueAdm || !bloqueAdm.presente) {
+                    if (admBadge) { admBadge.textContent = 'No creado'; admBadge.className = 'text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200'; }
+                    admCont.innerHTML = '<div class="p-4 bg-slate-50 rounded-lg text-slate-400 text-xs italic">Archivo Admision.docx no encontrado en la carpeta del paciente.</div>';
+                } else {
+                    if (admBadge) { admBadge.textContent = 'Urgencia C3'; admBadge.className = 'text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200'; }
+                    let html = '';
+                    const campos = bloqueAdm.campos || [];
+                    const edadSexo = campos.find(c => c.etiqueta.toLowerCase().includes('edad') || c.etiqueta.toLowerCase().includes('sexo'));
+                    const peso = campos.find(c => c.etiqueta.toLowerCase() === 'peso');
+                    const motivo = campos.find(c => c.etiqueta.toLowerCase().includes('motivo') || c.etiqueta.toLowerCase().includes('evolución'));
+
+                    if (edadSexo || peso) {
+                        html += '<div class="grid grid-cols-2 gap-2 text-[11px]">'
+                            + (edadSexo ? '<div class="bg-slate-50 p-2 rounded-lg border border-slate-100"><span class="text-slate-400 block text-[10px]">Edad / Sexo</span><span class="font-semibold text-slate-800">' + asigEsc(edadSexo.texto) + '</span></div>' : '')
+                            + (peso ? '<div class="bg-slate-50 p-2 rounded-lg border border-slate-100"><span class="text-slate-400 block text-[10px]">Peso</span><span class="font-semibold text-slate-800">' + asigEsc(peso.texto) + '</span></div>' : '')
+                            + '</div>';
+                    }
+
+                    if (motivo) {
+                        html += '<div class="bg-purple-50/60 p-2.5 rounded-lg border border-purple-100">'
+                            + '<span class="text-[10px] uppercase font-bold text-purple-800 block mb-0.5">Motivo de internación / Triage</span>'
+                            + '<p class="font-medium text-purple-900 text-xs">' + asigEsc(motivo.texto) + '</p>'
+                            + '</div>';
+                    }
+
+                    campos.forEach(c => {
+                        if (c === edadSexo || c === peso || c === motivo) return;
+                        html += '<div class="bg-slate-50 p-2 rounded-lg border border-slate-100">'
+                            + '<span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">' + asigEsc(c.etiqueta) + '</span>'
+                            + '<div class="text-xs text-slate-700">' + asigPintarLineas(c.texto) + '</div>'
+                            + '</div>';
+                    });
+
+                    if (!html) {
+                        html = '<p class="text-xs text-slate-400 italic">El archivo de admisión no contiene información adicional.</p>';
+                    }
+                    admCont.innerHTML = html;
+                }
+            }
+        }
+
+        // CONTROL DE MODOS DE VISTA DE DOCUMENTOS (PARALELO VS PESTAÑAS)
+        function setViewMode(mode) {
+            currentMode = mode;
+            const btnAll = document.getElementById('btn-mode-all');
+            const btnTabs = document.getElementById('btn-mode-tabs');
+            const instructionText = document.getElementById('tab-instruction-text');
+            const container = document.getElementById('documents-container');
+
+            const cardHC = document.getElementById('doc-card-hc');
+            const cardInd = document.getElementById('doc-card-ind');
+            const cardAdm = document.getElementById('doc-card-adm');
+
+            if (mode === 'all') {
+                if (btnAll) btnAll.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 bg-white text-slate-900 shadow-xs cursor-pointer';
+                if (btnTabs) btnTabs.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 text-slate-600 hover:text-slate-900 cursor-pointer';
+
+                if (instructionText) {
+                    instructionText.innerHTML = '<svg class="w-3.5 h-3.5 text-teal-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Modo paralelo: visualizando los 3 documentos simultáneamente.</span>';
+                }
+
+                if (container) container.className = 'grid grid-cols-1 md:grid-cols-3 gap-4';
+                if (cardHC) cardHC.classList.remove('hidden');
+                if (cardInd) cardInd.classList.remove('hidden');
+                if (cardAdm) cardAdm.classList.remove('hidden');
+
+                resetTopTabsStyle(false);
+            } else {
+                if (btnTabs) btnTabs.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 bg-white text-slate-900 shadow-xs cursor-pointer';
+                if (btnAll) btnAll.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 text-slate-600 hover:text-slate-900 cursor-pointer';
+
+                if (instructionText) {
+                    instructionText.innerHTML = '<svg class="w-3.5 h-3.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Modo pestaña individual: haz clic en cualquier documento para leerlo en detalle. El cuadro azul es el que estás leyendo.</span>';
+                }
+
+                if (container) container.className = 'block';
+                renderSelectedDocument();
+            }
+        }
+
+        function selectIndividualTab(tabKey) {
+            currentActiveTab = tabKey;
+            if (currentMode === 'all') {
+                setViewMode('tabs');
+            } else {
+                renderSelectedDocument();
+            }
+        }
+
+        function renderSelectedDocument() {
+            const cardHC = document.getElementById('doc-card-hc');
+            const cardInd = document.getElementById('doc-card-ind');
+            const cardAdm = document.getElementById('doc-card-adm');
+
+            if (cardHC) cardHC.classList.add('hidden');
+            if (cardInd) cardInd.classList.add('hidden');
+            if (cardAdm) cardAdm.classList.add('hidden');
+
+            if (currentActiveTab === 'hc' && cardHC) cardHC.classList.remove('hidden');
+            if (currentActiveTab === 'ind' && cardInd) cardInd.classList.remove('hidden');
+            if (currentActiveTab === 'adm' && cardAdm) cardAdm.classList.remove('hidden');
+
+            resetTopTabsStyle(true);
+        }
+
+        function resetTopTabsStyle(isTabsMode) {
+            const tabHC = document.getElementById('tab-btn-hc');
+            const tabInd = document.getElementById('tab-btn-ind');
+            const tabAdm = document.getElementById('tab-btn-adm');
+
+            const defaultStyle = 'p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 cursor-pointer transition shadow-2xs';
+            const activeStyle = 'p-3 rounded-xl border-2 border-blue-600 bg-blue-50/40 ring-2 ring-blue-500/20 cursor-pointer transition shadow-sm';
+            const parallelStyle = 'p-3 rounded-xl border border-teal-500/70 bg-teal-50/20 hover:border-teal-500 cursor-pointer transition shadow-2xs';
+
+            if (!isTabsMode) {
+                if (tabHC) tabHC.className = parallelStyle;
+                if (tabInd) tabInd.className = parallelStyle;
+                if (tabAdm) tabAdm.className = parallelStyle;
+            } else {
+                if (tabHC) tabHC.className = (currentActiveTab === 'hc') ? activeStyle : defaultStyle;
+                if (tabInd) tabInd.className = (currentActiveTab === 'ind') ? activeStyle : defaultStyle;
+                if (tabAdm) tabAdm.className = (currentActiveTab === 'adm') ? activeStyle : defaultStyle;
+            }
+        }
+
+        // FULLSCREEN MODAL VISOR DE DOCUMENTOS
+        function openDocumentModal(docKey) {
+            modalActiveDoc = docKey;
+            const modal = document.getElementById('doc-fullscreen-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            renderModalContent();
+        }
+
+        function closeDocumentModal() {
+            const modal = document.getElementById('doc-fullscreen-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function navigateModalDoc(direction) {
+            const docs = ['hc', 'ind', 'adm'];
+            let idx = docs.indexOf(modalActiveDoc);
+            idx = (idx + direction + docs.length) % docs.length;
+            modalActiveDoc = docs[idx];
+            renderModalContent();
+        }
+
+        function renderModalContent() {
+            const titles = { hc: 'Historia Clínica', ind: 'Indicaciones Médicas', adm: 'Ficha de Admisión y Triage' };
+            const badges = { hc: '1', ind: '2', adm: '3' };
+
+            const badgeEl = document.getElementById('modal-badge-container');
+            const titleEl = document.getElementById('modal-doc-title');
+            const subEl = document.getElementById('modal-doc-subtitle');
+            const bodyEl = document.getElementById('modal-doc-body');
+
+            if (badgeEl) badgeEl.textContent = badges[modalActiveDoc] || '1';
+            if (titleEl) titleEl.textContent = titles[modalActiveDoc] || 'Documento Clínico';
+            if (subEl && asigSeleccionado) {
+                subEl.textContent = 'Paciente: ' + asigSeleccionado.nombre + ' • Cama Obs-02';
+            }
+
+            if (bodyEl) {
+                const srcId = modalActiveDoc === 'hc' ? 'hc-doc-content' : (modalActiveDoc === 'ind' ? 'ind-doc-content' : 'adm-doc-content');
+                const srcEl = document.getElementById(srcId);
+                bodyEl.innerHTML = srcEl ? srcEl.innerHTML : '<p class="text-xs text-slate-400">Sin contenido disponible.</p>';
+            }
+        }
+
+        function copyDocumentContent() {
+            const body = document.getElementById('modal-doc-body');
+            if (!body) return;
+            const text = body.innerText || body.textContent;
+            copiarAlPortapapeles(text).then(() => {
+                const feedback = document.getElementById('copy-feedback');
+                if (feedback) {
+                    const prev = feedback.textContent;
+                    feedback.textContent = '¡Copiado!';
+                    setTimeout(() => { feedback.textContent = prev; }, 2000);
+                }
+            }).catch(() => {
+                notify('No se pudo copiar el texto');
+            });
         }
 
         function asigElegirTipo(tipo) {
@@ -2231,21 +2980,57 @@
         }
 
         function asigMarcarTipo(tipo) {
-            const estilos = {
-                estable: ['border-2 border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/10', 'border border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/40'],
-                intermedio: ['border-2 border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/10', 'border border-slate-200 bg-white hover:border-amber-400 hover:bg-amber-50/40'],
-                critico: ['border-2 border-rose-500 bg-rose-50/70 ring-2 ring-rose-500/10', 'border border-slate-200 bg-white hover:border-rose-400 hover:bg-rose-50/40']
+            asigTipoElegido = tipo;
+            const cards = {
+                estable: document.getElementById('asig-card-estable'),
+                intermedio: document.getElementById('asig-card-intermedio'),
+                critico: document.getElementById('asig-card-critico')
             };
-            ['estable', 'intermedio', 'critico'].forEach((clave) => {
-                const boton = document.getElementById('asig-btn-' + clave);
-                if (!boton) return;
-                const activo = tipo === clave;
-                boton.className = 'flex flex-col gap-2 rounded-xl p-3.5 text-left ' + (activo ? estilos[clave][0] : estilos[clave][1]);
+            const radios = {
+                estable: document.getElementById('asig-radio-estable'),
+                intermedio: document.getElementById('asig-radio-intermedio'),
+                critico: document.getElementById('asig-radio-critico')
+            };
+
+            const baseClass = 'relative flex flex-col p-3.5 rounded-xl border-2 border-slate-200 bg-white cursor-pointer transition select-none';
+            const activeClasses = {
+                estable: 'relative flex flex-col p-3.5 rounded-xl border-2 border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-500/20 cursor-pointer transition select-none',
+                intermedio: 'relative flex flex-col p-3.5 rounded-xl border-2 border-orange-500 bg-orange-50/40 ring-2 ring-orange-500/20 cursor-pointer transition select-none',
+                critico: 'relative flex flex-col p-3.5 rounded-xl border-2 border-rose-500 bg-rose-50/40 ring-2 ring-rose-500/20 cursor-pointer transition select-none'
+            };
+            const radioActiveClasses = {
+                estable: 'w-4 h-4 rounded-full border-2 border-emerald-500 flex items-center justify-center bg-emerald-500',
+                intermedio: 'w-4 h-4 rounded-full border-2 border-orange-500 flex items-center justify-center bg-orange-500',
+                critico: 'w-4 h-4 rounded-full border-2 border-rose-500 flex items-center justify-center bg-rose-500'
+            };
+            const radioDefaultClass = 'w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center';
+
+            ['estable', 'intermedio', 'critico'].forEach((k) => {
+                if (!cards[k]) return;
+                const isActive = tipo === k;
+                cards[k].className = isActive ? activeClasses[k] : baseClass + ' hover:border-slate-300 hover:bg-slate-50/50';
+                if (radios[k]) {
+                    radios[k].className = isActive ? radioActiveClasses[k] : radioDefaultClass;
+                    radios[k].innerHTML = isActive ? '<div class="w-1.5 h-1.5 rounded-full bg-white"></div>' : '<div class="w-1.5 h-1.5 rounded-full bg-transparent"></div>';
+                }
             });
-            const etiqueta = document.getElementById('asig-tipo-actual');
-            const marca = asigEtiqueta(tipo);
-            etiqueta.textContent = marca.texto;
-            etiqueta.className = 'inline-block rounded-full border px-3 py-1 text-xs font-bold ' + marca.clase;
+
+            const statusBadge = document.getElementById('asig-tipo-actual');
+            if (statusBadge) {
+                if (tipo === 'critico') {
+                    statusBadge.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1.5 shadow-2xs';
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-600 badge-pulse"></span><span>Crítico</span>';
+                } else if (tipo === 'intermedio') {
+                    statusBadge.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-orange-100 text-orange-800 border border-orange-300 flex items-center gap-1.5 shadow-2xs';
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-orange-500"></span><span>Cuidado Intermedio</span>';
+                } else if (tipo === 'estable') {
+                    statusBadge.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-2xs';
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Estable</span>';
+                } else {
+                    statusBadge.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs';
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span><span>Pendiente de clasificación</span>';
+                }
+            }
         }
 
         function asigConfirmar() {
@@ -2288,6 +3073,20 @@
                 notify('No se pudo guardar la asignación.');
             }
         }
+
+        // Listener global para atajo "/" y tecla Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                const busq = document.getElementById('asig-buscar');
+                const moduleAsig = document.getElementById('module-asignacion');
+                if (busq && moduleAsig && !moduleAsig.classList.contains('hidden')) {
+                    e.preventDefault();
+                    busq.focus();
+                }
+            } else if (e.key === 'Escape') {
+                closeDocumentModal();
+            }
+        });
 
         function toggleSidebar(open) {
             const sidebar = document.getElementById('sidebar');
