@@ -196,36 +196,27 @@ class DocumentoController extends Controller
         // Si es Google Drive (cualquier letra con 'Mi unidad' o 'My Drive', e.g. H: o G: o I:)
         if ($this->esGoogleDrive($discoLetra)) {
             $subcarpeta = is_dir("{$discoLetra}:/Mi unidad") ? 'Mi unidad' : 'My Drive';
-
-            // 1. Prioridad: Verificar si es un acceso directo de Google Drive (.shortcut-targets-by-id)
-            $folderId = env('GOOGLE_DRIVE_FOLDER_ID');
-            if (! empty($folderId)) {
-                $candidatosShortcut = [
-                    "{$discoLetra}:/.shortcut-targets-by-id/{$folderId}/PEDIATRIA",
-                    "{$discoLetra}:/.shortcut-targets-by-id/{$folderId}",
-                ];
-                foreach ($candidatosShortcut as $cand) {
-                    if (is_dir($cand)) {
-                        return $cand;
-                    }
-                }
-            }
-
-            $shortcutTargets = glob("{$discoLetra}:/.shortcut-targets-by-id/*/PEDIATRIA");
-            if (! empty($shortcutTargets) && is_dir($shortcutTargets[0])) {
-                return $shortcutTargets[0];
-            }
-
-            // 2. Si no es un acceso directo, verificar si existe la carpeta física normal en Mi unidad
             $rutaPediatriaDrive = "{$discoLetra}:/{$subcarpeta}/PEDIATRIA";
+            $rutaLnk = "{$discoLetra}:/{$subcarpeta}/PEDIATRIA.lnk";
+
+            // La carpeta compartida (acceso directo) es la única donde deben vivir los pacientes.
+            $compartida = $this->consolidarPacientesDrive("{$discoLetra}:");
+            if ($compartida !== null) {
+                return $compartida;
+            }
+
+            $idAcceso = $this->idCarpetaDesdeAccesoDirecto($rutaLnk);
+            if ($idAcceso !== null) {
+                return "{$discoLetra}:/.shortcut-targets-by-id/{$idAcceso}/PEDIATRIA";
+            }
+
             if (is_dir($rutaPediatriaDrive)) {
                 return $rutaPediatriaDrive;
             }
 
-            // 3. Si no existe ninguno y tampoco hay acceso directo .lnk, crear la carpeta física
-            $rutaLnk = "{$discoLetra}:/{$subcarpeta}/PEDIATRIA.lnk";
-            if (! file_exists($rutaLnk)) {
-                @File::ensureDirectoryExists($rutaPediatriaDrive, 0755, true);
+            // No crear una PEDIATRIA física al lado del acceso directo: Drive mostraría dos carpetas.
+            if (! is_file($rutaLnk)) {
+                File::ensureDirectoryExists($rutaPediatriaDrive, 0755, true);
             }
 
             return $rutaPediatriaDrive;
@@ -236,6 +227,205 @@ class DocumentoController extends Controller
         }
 
         return "{$discoLetra}:/Pediatria";
+    }
+
+    /**
+     * Localiza la carpeta compartida PEDIATRIA y lleva hacia ella
+     * las carpetas de pacientes creadas por error en la copia local de Mi unidad.
+     */
+    public function consolidarPacientesDrive(string $raizDisco): ?string
+    {
+        $compartida = $this->buscarCarpetaCompartidaPediatria($raizDisco);
+        if ($compartida === null) {
+            return null;
+        }
+
+        foreach (['Mi unidad', 'My Drive'] as $subcarpeta) {
+            $this->trasladarPacientesACarpetaCompartida($raizDisco.'/'.$subcarpeta.'/PEDIATRIA', $compartida);
+        }
+
+        return $compartida;
+    }
+
+    /**
+     * Busca la carpeta PEDIATRIA que Google Drive expone como acceso directo.
+     */
+    public function buscarCarpetaCompartidaPediatria(string $raizDisco): ?string
+    {
+        $raiz = rtrim(str_replace('\\', '/', $raizDisco), '/');
+        $candidatos = [];
+
+        $folderId = env('GOOGLE_DRIVE_FOLDER_ID');
+        if (is_string($folderId) && $folderId !== '') {
+            $candidatos[] = "{$raiz}/.shortcut-targets-by-id/{$folderId}/PEDIATRIA";
+        }
+
+        foreach (['Mi unidad', 'My Drive'] as $subcarpeta) {
+            $idAcceso = $this->idCarpetaDesdeAccesoDirecto("{$raiz}/{$subcarpeta}/PEDIATRIA.lnk");
+            if ($idAcceso !== null) {
+                $candidatos[] = "{$raiz}/.shortcut-targets-by-id/{$idAcceso}/PEDIATRIA";
+            }
+        }
+
+        $porGlob = glob($raiz.'/.shortcut-targets-by-id/*/PEDIATRIA');
+        if (is_array($porGlob)) {
+            foreach ($porGlob as $ruta) {
+                $candidatos[] = str_replace('\\', '/', $ruta);
+            }
+        }
+
+        $contenedor = $raiz.'/.shortcut-targets-by-id';
+        if (is_dir($contenedor)) {
+            $ids = scandir($contenedor) ?: [];
+            foreach ($ids as $id) {
+                if ($id === '.' || $id === '..') {
+                    continue;
+                }
+                $candidatos[] = $contenedor.'/'.$id.'/PEDIATRIA';
+            }
+        }
+
+        foreach ($candidatos as $cand) {
+            if (is_dir($cand)) {
+                return str_replace('\\', '/', $cand);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Mueve las carpetas YYYY-MM-DD de una PEDIATRIA duplicada a la carpeta compartida.
+     * Si la duplicada queda sin expedientes, la elimina para que Drive no muestre dos PEDIATRIA.
+     */
+    public function trasladarPacientesACarpetaCompartida(string $origen, string $destino): void
+    {
+        $origen = str_replace('\\', '/', $origen);
+        $destino = str_replace('\\', '/', $destino);
+
+        if (! is_dir($origen) || ! is_dir($destino)) {
+            return;
+        }
+
+        $origenReal = realpath($origen);
+        $destinoReal = realpath($destino);
+        if ($origenReal !== false && $destinoReal !== false && strcasecmp($origenReal, $destinoReal) === 0) {
+            return;
+        }
+
+        foreach (File::directories($origen) as $carpetaFecha) {
+            $fecha = basename($carpetaFecha);
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                continue;
+            }
+
+            $destinoFecha = $destino.'/'.$fecha;
+            if (! is_dir($destinoFecha)) {
+                $this->moverDirectorio($carpetaFecha, $destinoFecha);
+
+                continue;
+            }
+
+            foreach (File::directories($carpetaFecha) as $carpetaPaciente) {
+                $destinoPaciente = $destinoFecha.'/'.basename($carpetaPaciente);
+                if (is_dir($destinoPaciente)) {
+                    $destinoPaciente .= '_'.now()->format('His');
+                }
+                $this->moverDirectorio($carpetaPaciente, $destinoPaciente);
+            }
+
+            if ($this->carpetaDuplicadaPuedeEliminarse($carpetaFecha)) {
+                File::deleteDirectory($carpetaFecha);
+            }
+        }
+
+        if ($this->carpetaDuplicadaPuedeEliminarse($origen)) {
+            File::deleteDirectory($origen);
+            Log::info('Se eliminó la carpeta PEDIATRIA duplicada después de mover los pacientes.', [
+                'origen' => $origen,
+                'destino' => $destino,
+            ]);
+        }
+    }
+
+    /**
+     * Lee el id de la carpeta de Drive guardado dentro del acceso directo .lnk.
+     */
+    public function idCarpetaDesdeAccesoDirecto(string $rutaLnk): ?string
+    {
+        if (! is_file($rutaLnk)) {
+            return null;
+        }
+
+        $bytes = @file_get_contents($rutaLnk);
+        if (! is_string($bytes) || $bytes === '') {
+            return null;
+        }
+
+        if (! preg_match_all('/1[A-Za-z0-9_-]{20,}/', $bytes, $coincidencias)) {
+            return null;
+        }
+
+        $ids = $coincidencias[0];
+        usort($ids, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+
+        $raiz = str_replace('\\', '/', dirname($rutaLnk, 2));
+        foreach ($ids as $id) {
+            if (is_dir($raiz.'/.shortcut-targets-by-id/'.$id.'/PEDIATRIA')) {
+                return $id;
+            }
+        }
+
+        return $ids[0];
+    }
+
+    /**
+     * Mueve un directorio. Si el renombrado falla (típico entre carpetas de Drive), copia y luego borra el origen.
+     */
+    protected function moverDirectorio(string $desde, string $hacia): bool
+    {
+        File::ensureDirectoryExists(dirname($hacia), 0755, true);
+
+        if (File::moveDirectory($desde, $hacia) && is_dir($hacia)) {
+            return true;
+        }
+
+        if (! is_dir($desde)) {
+            return is_dir($hacia);
+        }
+
+        File::copyDirectory($desde, $hacia);
+        if (! is_dir($hacia) || count(File::allFiles($hacia)) < count(File::allFiles($desde))) {
+            return false;
+        }
+
+        File::deleteDirectory($desde);
+
+        return ! is_dir($desde);
+    }
+
+    /**
+     * Una copia local puede borrarse cuando ya no contiene expedientes ni archivos clínicos.
+     */
+    protected function carpetaDuplicadaPuedeEliminarse(string $ruta): bool
+    {
+        if (! is_dir($ruta)) {
+            return false;
+        }
+
+        foreach (File::directories($ruta) as $dir) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', basename($dir))) {
+                return false;
+            }
+        }
+
+        foreach (File::allFiles($ruta) as $archivo) {
+            if (strcasecmp($archivo->getFilename(), 'desktop.ini') !== 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -296,15 +486,14 @@ class DocumentoController extends Controller
             // 1. Buscar primero en la carpeta compartida de Google Drive
             $rutaOrigen = $this->encontrarPlantillaDrive($tipo, $letraDisco);
 
-            // 2. Si no se encuentra en Drive, recurrir a la plantilla local en Plantillas/
-            if (! $rutaOrigen || ! File::exists($rutaOrigen)) {
+            // 2. Si no se encuentra en Drive, o el archivo sincronizado está vacío,
+            // recurrir a la plantilla local en Plantillas/
+            if (! $this->docxTieneContenido($rutaOrigen)) {
                 $rutaLocal = base_path('Plantillas/'.$info['archivo']);
-                if (File::exists($rutaLocal)) {
-                    $rutaOrigen = $rutaLocal;
-                }
+                $rutaOrigen = $this->docxTieneContenido($rutaLocal) ? $rutaLocal : null;
             }
 
-            if ($rutaOrigen && File::exists($rutaOrigen)) {
+            if ($this->docxTieneContenido($rutaOrigen)) {
                 copy($rutaOrigen, $rutaDestinoArchivo);
 
                 $bytes = filesize($rutaDestinoArchivo);
@@ -676,6 +865,64 @@ class DocumentoController extends Controller
     }
 
     /**
+     * Un .docx de 0 bytes existe en disco, pero Word lo abre en blanco.
+     * Pasa con una plantilla de Drive que no terminó de sincronizarse.
+     */
+    protected function docxTieneContenido(?string $ruta): bool
+    {
+        return is_string($ruta)
+            && $ruta !== ''
+            && File::exists($ruta)
+            && File::size($ruta) > 0;
+    }
+
+    protected function nombreCoincideConPlantilla(string $tipo, string $nombre): bool
+    {
+        $lower = mb_strtolower($nombre);
+
+        return match ($tipo) {
+            'historia-clinica' => str_contains($lower, 'historia') || str_contains($lower, 'clinica') || str_contains($lower, 'zoe') || $lower === 'historia_clinica.docx',
+            'indicaciones' => str_contains($lower, 'indicacion') || str_contains($lower, 'indicaciones') || str_contains($lower, 'inducacion') || $lower === 'indicaciones.docx',
+            'admision' => str_contains($lower, 'admision') || str_contains($lower, 'admisión') || str_contains($lower, 'arixa') || str_contains($lower, 'adm') || str_contains($lower, 'nota_admision') || $lower === 'admision.docx',
+            default => false,
+        };
+    }
+
+    /**
+     * Archivos de esa plantilla que ya están en la carpeta, incluido el nombre
+     * guardado antes aunque no coincida con el patrón (por ejemplo "Documento sin título.docx").
+     *
+     * @return array<int, string>
+     */
+    protected function rutasAnterioresPlantilla(string $tipo, string $carpetaDrive): array
+    {
+        if (! File::isDirectory($carpetaDrive)) {
+            return [];
+        }
+
+        $rutas = [];
+        $mapping = $this->obtenerMapeoPlantillas();
+        if (! empty($mapping[$tipo])) {
+            $rutaMapeada = $carpetaDrive.'/'.$mapping[$tipo];
+            if (File::exists($rutaMapeada)) {
+                $rutas[] = realpath($rutaMapeada) ?: $rutaMapeada;
+            }
+        }
+
+        foreach (File::files($carpetaDrive) as $file) {
+            $nombre = $file->getFilename();
+            if (str_starts_with($nombre, '.') || str_starts_with($nombre, '~') || strcasecmp($nombre, 'desktop.ini') === 0) {
+                continue;
+            }
+            if ($this->nombreCoincideConPlantilla($tipo, $nombre)) {
+                $rutas[] = $file->getRealPath() ?: $file->getPathname();
+            }
+        }
+
+        return array_values(array_unique($rutas));
+    }
+
+    /**
      * Encuentra la ruta absoluta del archivo de plantilla en Google Drive (o disco configurado) según el tipo.
      */
     public function encontrarPlantillaDrive(string $tipo, ?string $disco = null): ?string
@@ -691,7 +938,7 @@ class DocumentoController extends Controller
         $mapping = $this->obtenerMapeoPlantillas();
         if (! empty($mapping[$tipo])) {
             $rutaMapeada = "{$carpetaDrive}/{$mapping[$tipo]}";
-            if (File::exists($rutaMapeada)) {
+            if ($this->docxTieneContenido($rutaMapeada)) {
                 return realpath($rutaMapeada) ?: $rutaMapeada;
             }
         }
@@ -705,27 +952,15 @@ class DocumentoController extends Controller
                 continue;
             }
 
-            $lower = mb_strtolower($nombre);
-
-            if ($tipo === 'historia-clinica') {
-                if (str_contains($lower, 'historia') || str_contains($lower, 'clinica') || str_contains($lower, 'zoe') || $lower === 'historia_clinica.docx') {
-                    return $file->getRealPath();
-                }
-            } elseif ($tipo === 'indicaciones') {
-                if (str_contains($lower, 'indicacion') || str_contains($lower, 'indicaciones') || str_contains($lower, 'inducacion') || $lower === 'indicaciones.docx') {
-                    return $file->getRealPath();
-                }
-            } elseif ($tipo === 'admision') {
-                if (str_contains($lower, 'admision') || str_contains($lower, 'admisión') || str_contains($lower, 'arixa') || str_contains($lower, 'adm') || str_contains($lower, 'nota_admision') || $lower === 'admision.docx') {
-                    return $file->getRealPath();
-                }
+            if ($this->nombreCoincideConPlantilla($tipo, $nombre) && $this->docxTieneContenido($file->getRealPath())) {
+                return $file->getRealPath();
             }
         }
 
         // 3. Si no coincide por nombre especial, buscar con el nombre oficial estándar
         if (isset($this->plantillas[$tipo])) {
             $rutaOficial = "{$carpetaDrive}/{$this->plantillas[$tipo]['archivo']}";
-            if (File::exists($rutaOficial)) {
+            if ($this->docxTieneContenido($rutaOficial)) {
                 return realpath($rutaOficial) ?: $rutaOficial;
             }
         }
@@ -753,13 +988,13 @@ class DocumentoController extends Controller
             $fechaMod = null;
             $existe = false;
 
-            if ($rutaDrive && File::exists($rutaDrive)) {
+            if ($this->docxTieneContenido($rutaDrive)) {
                 $rutaFinal = $rutaDrive;
                 $nombreReal = basename($rutaDrive);
                 $origen = 'Google Drive (Compartido)';
                 $fechaMod = date('d/m/Y H:i', filemtime($rutaDrive));
                 $existe = true;
-            } elseif (File::exists($rutaLocal)) {
+            } elseif ($this->docxTieneContenido($rutaLocal)) {
                 $rutaFinal = $rutaLocal;
                 $mapping = $this->obtenerMapeoPlantillas();
                 $nombreReal = ! empty($mapping[$tipo]) ? $mapping[$tipo] : $info['archivo'];
@@ -811,11 +1046,11 @@ class DocumentoController extends Controller
 
         $rutaDescarga = $this->encontrarPlantillaDrive($tipo, $disco);
 
-        if (! $rutaDescarga || ! File::exists($rutaDescarga)) {
+        if (! $this->docxTieneContenido($rutaDescarga)) {
             $rutaDescarga = base_path('Plantillas/'.$info['archivo']);
         }
 
-        if (! File::exists($rutaDescarga)) {
+        if (! $this->docxTieneContenido($rutaDescarga)) {
             abort(404, "La plantilla '{$info['archivo']}' no se encuentra en el servidor ni en Google Drive.");
         }
 
@@ -846,14 +1081,14 @@ class DocumentoController extends Controller
         $rutaAbrir = $this->encontrarPlantillaDrive($tipo, $disco);
 
         // 2. Fallback: Buscar en la carpeta local Plantillas/
-        if (! $rutaAbrir || ! File::exists($rutaAbrir)) {
+        if (! $this->docxTieneContenido($rutaAbrir)) {
             $rutaLocal = base_path('Plantillas/'.$info['archivo']);
-            if (File::exists($rutaLocal)) {
+            if ($this->docxTieneContenido($rutaLocal)) {
                 $rutaAbrir = $rutaLocal;
             }
         }
 
-        if (! $rutaAbrir || ! File::exists($rutaAbrir)) {
+        if (! $this->docxTieneContenido($rutaAbrir)) {
             return response()->json([
                 'success' => false,
                 'message' => "La plantilla '{$info['archivo']}' no se encuentra en Google Drive ni en la carpeta local.",
@@ -926,36 +1161,53 @@ class DocumentoController extends Controller
         File::ensureDirectoryExists($carpetaLocal, 0755, true);
         $rutaLocal = "{$carpetaLocal}/{$info['archivo']}";
         File::copy($file->getRealPath(), $rutaLocal);
-        $this->guardarMapeoPlantilla($tipo, $nombreArchivoNuevo);
 
         $actualizadoEnDrive = false;
-        $archivoDriveNombre = $nombreArchivoNuevo;
 
-        // 2. Actualizar en la unidad de Google Drive Desktop
+        // 2. Reemplazar la plantilla de este tipo en Google Drive.
+        // Se anotan los archivos actuales ANTES de cambiar el nombre guardado,
+        // porque si no el anterior (aunque se llame distinto) se queda y aparece un 4.º archivo.
         $rutaBase = $this->getRutaBasePediatria($disco);
         $carpetaDrive = "{$rutaBase}/PLANTILLAS";
 
         if (File::isDirectory($carpetaDrive)) {
-            $archivoDriveExistente = $this->encontrarPlantillaDrive($tipo, $disco);
-            $rutaNuevoDrive = "{$carpetaDrive}/{$nombreArchivoNuevo}";
+            $anteriores = $this->rutasAnterioresPlantilla($tipo, $carpetaDrive);
+            $rutaNuevoDrive = $carpetaDrive.'/'.$nombreArchivoNuevo;
+            $destinoDrive = $rutaNuevoDrive;
+            $respaldoDrive = null;
 
-            if ($archivoDriveExistente && File::exists($archivoDriveExistente)) {
-                // Si el nombre anterior era diferente, eliminar el archivo antiguo para renombrarlo limpiamente
-                if (strcasecmp(basename($archivoDriveExistente), $nombreArchivoNuevo) !== 0) {
-                    File::copy($file->getRealPath(), $rutaNuevoDrive);
-                    @touch($rutaNuevoDrive);
-                    @File::delete($archivoDriveExistente);
-                } else {
-                    File::copy($file->getRealPath(), $archivoDriveExistente);
-                    @touch($archivoDriveExistente);
+            foreach ($anteriores as $anterior) {
+                if (strcasecmp(basename($anterior), $nombreArchivoNuevo) === 0) {
+                    $destinoDrive = $anterior;
+                    $respaldoDrive = File::get($anterior);
+                    break;
                 }
-            } else {
-                File::copy($file->getRealPath(), $rutaNuevoDrive);
-                @touch($rutaNuevoDrive);
             }
 
+            File::copy($file->getRealPath(), $destinoDrive);
+            @touch($destinoDrive);
+
+            if (! $this->docxTieneContenido($destinoDrive) && $respaldoDrive !== null) {
+                File::put($destinoDrive, $respaldoDrive);
+            }
+
+            if ($this->docxTieneContenido($destinoDrive)) {
+                $destinoReal = realpath($destinoDrive) ?: $destinoDrive;
+                foreach ($anteriores as $anterior) {
+                    $anteriorReal = realpath($anterior) ?: $anterior;
+                    if (strcasecmp($anteriorReal, $destinoReal) === 0) {
+                        continue;
+                    }
+                    @File::delete($anterior);
+                }
+                $this->guardarMapeoPlantilla($tipo, basename($destinoReal));
+                $actualizadoEnDrive = true;
+                $nombreArchivoNuevo = basename($destinoReal);
+            }
+        }
+
+        if (! $actualizadoEnDrive) {
             $this->guardarMapeoPlantilla($tipo, $nombreArchivoNuevo);
-            $actualizadoEnDrive = true;
         }
 
         // 3. Sincronizar y renombrar también en Google Drive API si está configurada
@@ -968,12 +1220,13 @@ class DocumentoController extends Controller
         }
 
         $mensaje = $actualizadoEnDrive
-            ? "✓ Plantilla '{$info['titulo']}' actualizada y renombrada a '{$nombreArchivoNuevo}' en Google Drive. A partir de ahora, todo nuevo paciente usará este formato."
-            : "✓ Plantilla '{$info['titulo']}' actualizada con éxito localmente.";
+            ? "Listo. «{$nombreArchivoNuevo}» ya quedó modificado en Google Drive. En el navegador de Drive puede tardar unos segundos en verse."
+            : 'Listo. El archivo quedó guardado en esta computadora. Google Drive todavía no mostró la carpeta PLANTILLAS.';
 
         return response()->json([
             'success' => true,
             'message' => $mensaje,
+            'en_drive' => $actualizadoEnDrive,
             'archivo' => $nombreArchivoNuevo,
             'estado' => $this->obtenerEstadoPlantillas($disco),
         ]);
@@ -1133,8 +1386,10 @@ class DocumentoController extends Controller
             }
         }
 
-        // 4. Auto-reparación (Auto-heal): Si el archivo clínico faltaba en la carpeta del paciente, regenerarlo desde la plantilla
-        if (! $rutaReal && $carpetaPaciente && File::isDirectory($carpetaPaciente)) {
+        // 4. Auto-reparación: si el archivo falta, o existe pero está vacío (0 bytes),
+        // reponerlo desde una plantilla que sí tenga contenido.
+        $archivoVacio = $rutaReal && ! $this->docxTieneContenido($rutaReal);
+        if (($archivoVacio || ! $rutaReal) && $carpetaPaciente && File::isDirectory($carpetaPaciente)) {
             $tipo = null;
             $lowerBuscado = mb_strtolower($archivoSeguro);
             if (str_contains($lowerBuscado, 'historia') || str_contains($lowerBuscado, 'clinica')) {
@@ -1146,9 +1401,12 @@ class DocumentoController extends Controller
             }
 
             if ($tipo) {
-                $rutaPlantilla = $this->encontrarPlantillaDrive($tipo, $disco) ?: base_path('Plantillas/'.$this->plantillas[$tipo]['archivo']);
-                if (File::exists($rutaPlantilla)) {
-                    $archivoDestino = "{$carpetaPaciente}/{$archivoSeguro}";
+                $rutaPlantilla = $this->encontrarPlantillaDrive($tipo, $disco);
+                if (! $this->docxTieneContenido($rutaPlantilla)) {
+                    $rutaPlantilla = base_path('Plantillas/'.$this->plantillas[$tipo]['archivo']);
+                }
+                if ($this->docxTieneContenido($rutaPlantilla)) {
+                    $archivoDestino = $archivoVacio ? (string) $rutaReal : "{$carpetaPaciente}/{$archivoSeguro}";
                     File::copy($rutaPlantilla, $archivoDestino);
                     $rutaReal = str_replace('/', '\\', realpath($archivoDestino) ?: $archivoDestino);
                 }

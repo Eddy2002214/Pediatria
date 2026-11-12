@@ -164,9 +164,32 @@
     <!-- ======================================================== -->
     <!-- TOAST DE NOTIFICACIONES FLOTANTE (RESPONSIVO)            -->
     <!-- ======================================================== -->
-    <div id="toastNotification" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: none;" class="items-center gap-3 rounded-2xl bg-[#123b5d] px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-2xl transition-all duration-300 opacity-0 pointer-events-none translate-y-3 border border-white/10 max-w-[90vw]">
+    <div id="toastNotification" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: none;" class="items-center gap-3 rounded-2xl bg-[#123b5d] px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-2xl transition-all duration-300 opacity-0 pointer-events-none translate-y-3 border border-white/10 max-w-[min(28rem,90vw)]">
         <i id="toastIcon" data-lucide="check" class="size-4 sm:size-5 text-[#55d6c2] shrink-0"></i>
-        <span id="toastMessage" class="truncate">Operación realizada con éxito</span>
+        <span id="toastMessage" class="leading-snug">Operación realizada con éxito</span>
+    </div>
+
+    <div id="modalCambiarPlantilla" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-950/45 backdrop-blur-xs p-4">
+        <div class="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-100">
+            <div class="flex items-start gap-3">
+                <div class="grid size-11 place-items-center rounded-2xl bg-[#e8f5f6] text-[#248294] shrink-0">
+                    <i data-lucide="upload-cloud" class="size-5"></i>
+                </div>
+                <div class="min-w-0">
+                    <h3 class="text-base font-black tracking-tight text-[#123b5d]">Cambiar plantilla</h3>
+                    <p class="mt-1 text-sm text-slate-600 leading-snug">Se va a usar el archivo <span id="modalCambiarPlantillaArchivo" class="font-bold text-[#123b5d] break-all"></span>.</p>
+                </div>
+            </div>
+            <ul class="mt-4 space-y-1.5 text-xs text-slate-600 leading-snug">
+                <li>Se guarda en la carpeta PLANTILLAS de Google Drive.</li>
+                <li>Los pacientes nuevos usarán este archivo.</li>
+                <li>Los pacientes que ya están registrados no se modifican.</li>
+            </ul>
+            <div class="mt-5 flex items-center justify-end gap-2">
+                <button type="button" id="btnCancelarCambioPlantilla" class="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition cursor-pointer">Cancelar</button>
+                <button type="button" id="btnConfirmarCambioPlantilla" class="px-4 py-2.5 text-xs font-extrabold bg-[#123b5d] hover:bg-[#1a4a73] text-white rounded-xl transition cursor-pointer">Cambiar y guardar en Drive</button>
+            </div>
+        </div>
     </div>
 
     <!-- ======================================================== -->
@@ -3101,10 +3124,13 @@
         }
 
         // 2. TOAST NOTIFICATIONS
-        function notify(msg) {
+        function notify(msg, opciones) {
             const toast = document.getElementById('toastNotification');
             const msgEl = document.getElementById('toastMessage');
             if (!toast || !msgEl) return;
+            const opts = typeof opciones === 'number' ? { duracion: opciones } : (opciones || {});
+            const persistir = !!opts.persistir;
+            const duracion = opts.duracion ?? 3000;
             msgEl.innerText = msg;
 
             toast.style.display = 'flex';
@@ -3113,6 +3139,9 @@
             });
 
             clearTimeout(window.__toastTimer);
+            if (persistir) {
+                return;
+            }
             window.__toastTimer = setTimeout(() => {
                 toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
                 setTimeout(() => {
@@ -3120,7 +3149,7 @@
                         toast.style.display = 'none';
                     }
                 }, 350);
-            }, 3000);
+            }, duracion);
         }
 
         // 3. CAMBIAR DISCO GLOBAL
@@ -4737,6 +4766,49 @@
             if (input) input.click();
         }
 
+        function pedirConfirmacionCambioPlantilla(nombreArchivo) {
+            const modal = document.getElementById('modalCambiarPlantilla');
+            const nombreEl = document.getElementById('modalCambiarPlantillaArchivo');
+            const btnOk = document.getElementById('btnConfirmarCambioPlantilla');
+            const btnNo = document.getElementById('btnCancelarCambioPlantilla');
+            if (!modal || !btnOk || !btnNo) {
+                return Promise.resolve(false);
+            }
+            if (nombreEl) nombreEl.textContent = nombreArchivo;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+
+            return new Promise((resolve) => {
+                const cerrar = (acepta) => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    btnOk.onclick = null;
+                    btnNo.onclick = null;
+                    resolve(acepta);
+                };
+                btnOk.onclick = () => cerrar(true);
+                btnNo.onclick = () => cerrar(false);
+            });
+        }
+
+        function marcarPlantillaGuardando(tipo, guardando) {
+            const subtitulo = document.getElementById('subtitulo-plantilla-' + tipo);
+            if (!subtitulo) return;
+            if (guardando) {
+                if (!subtitulo.dataset.htmlPrevio) {
+                    subtitulo.dataset.htmlPrevio = subtitulo.innerHTML;
+                }
+                subtitulo.innerHTML = '<span class="font-semibold text-amber-700">Espere, guardando el documento en Google Drive…</span>';
+                return;
+            }
+            if (subtitulo.dataset.htmlPrevio) {
+                subtitulo.innerHTML = subtitulo.dataset.htmlPrevio;
+                delete subtitulo.dataset.htmlPrevio;
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+
         async function subirPlantillaArchivo(tipo, inputEl) {
             const file = inputEl.files[0];
             if (!file) return;
@@ -4747,13 +4819,19 @@
                 return;
             }
 
-            const confirmar = confirm(`¿Deseas reemplazar esta plantilla con el archivo "${file.name}"?\n\n- Se actualizará en la carpeta compartida de Google Drive (PLANTILLAS).\n- Los nuevos pacientes que registres usarán este nuevo formato.\n- Los pacientes anteriores NO se modificarán (permanecen protegidos).`);
+            const confirmar = await pedirConfirmacionCambioPlantilla(file.name);
             if (!confirmar) {
                 inputEl.value = "";
                 return;
             }
 
-            notify("Subiendo y actualizando plantilla maestra en Google Drive...");
+            const boton = inputEl.previousElementSibling;
+            const textoBoton = boton ? boton.querySelector('span') : null;
+            const textoOriginal = textoBoton ? textoBoton.textContent : '';
+            if (boton) boton.disabled = true;
+            if (textoBoton) textoBoton.textContent = 'Guardando…';
+            marcarPlantillaGuardando(tipo, true);
+            notify("Espere. El documento se está guardando en Google Drive. Puede tardar un momento; no cierre esta pantalla.", { persistir: true });
             const formData = new FormData();
             formData.append('tipo', tipo);
             formData.append('archivo', file);
@@ -4769,16 +4847,25 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    notify(data.message || "✓ Plantilla actualizada con éxito en Google Drive y local");
+                    const nombre = data.archivo || file.name;
+                    const enDrive = data.en_drive !== false;
+                    const subtitulo = document.getElementById('subtitulo-plantilla-' + tipo);
+                    if (subtitulo) delete subtitulo.dataset.htmlPrevio;
+                    notify(enDrive
+                        ? "Listo. «" + nombre + "» ya quedó modificado en Google Drive. En el navegador de Drive puede tardar unos segundos en verse."
+                        : "Listo. El archivo quedó guardado en esta computadora. Google Drive todavía no mostró la carpeta PLANTILLAS.", { duracion: 9000 });
                     if (data.estado && data.estado[tipo]) {
                         actualizarVisualPlantilla(tipo, data.estado[tipo]);
                     }
                 } else {
-                    notify("Error: " + (data.message || "No se pudo actualizar"));
+                    notify("No se pudo cambiar la plantilla. " + (data.message || "Inténtelo de nuevo."), { duracion: 7000 });
                 }
             } catch (e) {
-                notify("Error de red al subir la plantilla");
+                notify("No se pudo guardar el documento. Revise la conexión y vuelva a intentarlo.", { duracion: 7000 });
             } finally {
+                marcarPlantillaGuardando(tipo, false);
+                if (textoBoton) textoBoton.textContent = textoOriginal || 'Cambiar archivo';
+                if (boton) boton.disabled = false;
                 inputEl.value = "";
             }
         }

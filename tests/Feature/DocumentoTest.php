@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\DocumentoController;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -151,7 +152,11 @@ class DocumentoTest extends TestCase
         $originalContent = File::exists($localTemplatePath) ? File::get($localTemplatePath) : null;
 
         try {
-            $file = UploadedFile::fake()->create('Nota_Admision_Pediatria_Optimizada_v2.docx', 100);
+            $contenidoReal = File::get($localTemplatePath);
+            $file = UploadedFile::fake()->createWithContent(
+                'Nota_Admision_Pediatria_Optimizada_v2.docx',
+                $contenidoReal ?: 'PK'
+            );
 
             $response = $this->post(route('documentos.subir-plantilla'), [
                 'tipo' => 'admision',
@@ -197,6 +202,36 @@ class DocumentoTest extends TestCase
             $this->assertFileExists("{$testDir}/Admision.docx");
         } finally {
             File::deleteDirectory(base_path('Pediatria/2026-11-10'));
+        }
+    }
+
+    public function test_paciente_de_la_copia_local_pasa_a_la_carpeta_compartida(): void
+    {
+        $raiz = storage_path('framework/testing/drive-compartido');
+        $id = '1KPUHbk11USXJRu5ZkQwt-o5G7Pz8lb1X';
+        $compartida = $raiz.'/.shortcut-targets-by-id/'.$id.'/PEDIATRIA';
+        $copiaLocal = $raiz.'/Mi unidad/PEDIATRIA';
+        $expediente = $copiaLocal.'/2026-11-11/mario_hugo/Historia_Clinica.docx';
+
+        File::deleteDirectory($raiz);
+        File::ensureDirectoryExists($compartida.'/PLANTILLAS', 0755, true);
+        File::put($compartida.'/PLANTILLAS/plantilla.docx', 'plantilla-real');
+        File::ensureDirectoryExists(dirname($expediente), 0755, true);
+        File::put($expediente, 'expediente-mario');
+        File::ensureDirectoryExists($copiaLocal.'/MaterialDocente/PowerPoint', 0755, true);
+        File::put($raiz.'/Mi unidad/PEDIATRIA.lnk', 'shortcut-targets-by-id '.$id);
+
+        try {
+            $destino = app(DocumentoController::class)->consolidarPacientesDrive($raiz);
+
+            $this->assertSame(str_replace('\\', '/', $compartida), $destino);
+            $this->assertFileExists($compartida.'/2026-11-11/mario_hugo/Historia_Clinica.docx');
+            $this->assertSame('expediente-mario', File::get($compartida.'/2026-11-11/mario_hugo/Historia_Clinica.docx'));
+            $this->assertFileExists($compartida.'/PLANTILLAS/plantilla.docx');
+            $this->assertDirectoryDoesNotExist($copiaLocal);
+            $this->assertDirectoryDoesNotExist($compartida.'/MaterialDocente');
+        } finally {
+            File::deleteDirectory($raiz);
         }
     }
 }
